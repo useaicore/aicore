@@ -1,6 +1,7 @@
 # AICore
 
-> The Unified Infrastructure for AI Systems
+> About
+The Unified Infrastructure for AI Systems — LLM routing, caching, context registry, and observability for developers and agents.
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/built%20with-TypeScript-3178c6.svg)](https://www.typescriptlang.org/)
