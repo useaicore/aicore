@@ -1,11 +1,11 @@
 # AICore
 
-> About
-The Unified Infrastructure for AI Systems — LLM routing, caching, context registry, and observability for developers and agents.
+> The Unified Infrastructure for AI Systems
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/built%20with-TypeScript-3178c6.svg)](https://www.typescriptlang.org/)
 [![Status](https://img.shields.io/badge/status-pre--alpha-orange.svg)](#)
+[![Phase](https://img.shields.io/badge/phase-1%20building-yellow.svg)](#phase-1--what-were-shipping)
 
 ---
 
@@ -22,123 +22,203 @@ One import. Full visibility. Shared context. From day one.
 
 ---
 
-## Core Features
+## Phase 1 — What We’re Shipping
 
-### Unified LLM SDK
-One TypeScript SDK replaces all your provider imports. `ai.chat`, `ai.stream`, `ai.complete` — same interface for OpenAI, Anthropic, Groq, Gemini, and more. Shadow mode lets you adopt with zero risk.
+> **Status: 🚧 Building**
 
-### Smart LLM Routing
-Route requests to the best available model based on task type, cost, latency, and quality history. Rule-based at the edge — no extra LLM call per routing decision. Automatic fallback on provider failure.
+**Objective:** A thin, shippable slice that proves AICore is useful with almost no setup.
 
-### Response Caching
-Exact-match and semantic caching to eliminate redundant LLM calls. Cut costs by 50–70%. Configurable TTL, similarity thresholds, and workspace-level isolation.
+### TypeScript SDK
+- `ai.chat`, `ai.stream`, `ai.complete`
+- Works as a drop-in replacement around existing OpenAI/Anthropic calls
+- Supports shadow mode — run alongside existing setup, log but do not replace
 
-### Context Registry (`.aicorecontext`)
-A project-local folder that gives AI tools and agents structured knowledge about your stack, providers, and integration patterns. Auto-generated on `npx aicore init`. Versioned with your code. Community-backed templates for Stripe, Supabase, OpenAI, and more.
+### Cloudflare Worker Proxy
+- Forwards requests to underlying providers
+- Adds basic logging: model, tokens, cost, latency
+- Minimal configuration: one AICore endpoint + one workspace key
 
-### Observability Platform
-Every LLM call is logged — model, tokens, cost, latency, cache hit, quality score, workspace. Free dashboard for call logs and cost breakdowns. Real-time budget alerts. Built on a unified telemetry schema from day one.
+### Local Context Folder
+- `npx aicore init` creates `.aicore/context/` in the project
+- Generates:
+  - `overview.md` — how AI is (or will be) used in this project
+  - `stack.md` — detected frameworks and infra from `package.json`
+  - `workflow/*.md` — basic prompts and coding-workflow notes
+- Detects providers like `stripe` and scaffolds `.aicore/context/providers/stripe/*` with:
+  - Official doc links (subscriptions, payments, invoices, webhooks)
+  - AICore-written checklists and examples
+  - Project-specific “fill these in” sections
 
-### Agent-Aware Infrastructure *(Phase 4)*
-AICore does not orchestrate agents — that is the job of LangGraph, CrewAI, Strands, and similar frameworks. What AICore provides for agents is the infrastructure underneath them: intelligent routing using historical quality scores, per-workflow cost attribution, multi-agent budget enforcement, and automatic context injection via `.aicorecontext`.
+### Context Folder Structure (Phase 1 Target)
 
----
-
-## Architecture Overview
-
+```text
+.aicore/
+  context/
+    overview.md
+    stack.md
+    workflow/
+      coding-tools.md
+      prompts.md
+    providers/
+      stripe/
+        overview.md
+        subscriptions.md
+        one-time-payments.md
+        invoices.md
+        webhooks.md
 ```
-┌─────────────────────────────────────────────┐
-│       Your App  /  AI Agent Framework        │
-└─────────────────────┬───────────────────────┘
-                      │  aicore-sdk
-┌─────────────────────▼───────────────────────┐
-│            AICore Edge Proxy                 │
-│         (Cloudflare Workers)                 │
-│  Routing · Cache lookup · Logging · Budget   │
-└─────────────┬─────────────┬──────────────────┘
-               │             │
-┌────────────▼─┐   ┌─────▼───────────────────┐
-│  LLM Providers │   │   Control + Observability  │
-│  OpenAI        │   │   Fastify API (Node 22)    │
-│  Anthropic     │   │   Postgres / Supabase      │
-│  Groq          │   │   ClickHouse (analytics)   │
-│  Gemini  ...   │   │   Redis · BullMQ           │
-└───────────────┘   └────────────────────────┘
-```
 
----
-
-## Roadmap
-
-### Phase 1 — SDK + Context *(Weeks 1–4)*
-- [ ] `aicore-sdk` — `ai.chat`, `ai.stream`, `ai.complete` with unified metadata schema
-- [ ] Shadow mode — zero-risk adoption, runs alongside existing setup
-- [ ] `npx aicore init` — stack detection, auto-generates `.aicorecontext` folder
-- [ ] Terminal output — cost, latency, and model recommendation on first call
-- [ ] Local logs — `.aicorelogs.jsonl` with unified telemetry schema
-
-### Phase 2 — Observability + Team Dashboard *(Weeks 5–12)*
-- [ ] BullMQ + Postgres + ClickHouse async logging pipeline
-- [ ] Next.js dashboard — call logs, cost by feature, model breakdown
-- [ ] Team workspaces with auth (better-auth)
-- [ ] Basic budget alerts at 50%, 75%, 90%
-- [ ] Rule-based routing — config-driven, no LLM per request
-
-### Phase 3 — Monetization + Smart Routing *(Weeks 13–20)*
-- [ ] Routing engine — offline quality scoring per `taskType`
-- [ ] Per-workspace budgets with enforcement at the proxy
-- [ ] Stripe integration — Free / Pro ($29) / Team ($99) / Enterprise
-- [ ] Cost breakdown dashboards — per feature, per model, per user
-
-### Phase 3.5 — Community Context + Semantic Caching *(Months 5–7)*
-- [ ] Community Context Registry — peer-reviewed integration templates
-- [ ] `aicore provider add`, `aicore feature add` CLI commands
-- [ ] Semantic caching — vector search, similarity thresholds, TTLs
-- [ ] Refinement engine — quality scores stored per call
-
-### Phase 4 — Agent-Aware Infrastructure *(Months 7–11)*
-- [ ] Agent metadata fields — `workflowRunId`, `agentId`, `pipelineStep`
-- [ ] Per-workflow cost dashboards
-- [ ] Agent-aware routing using quality score history
-- [ ] Multi-agent budget enforcement
-- [ ] `.aicorecontext` auto-injection for agent frameworks
-
-### Phase 5 — Enterprise Platform *(Months 11–18)*
-- [ ] MCP server — native integration with Claude Code, Cursor, Windsurf
-- [ ] SSO, RBAC, audit logs UI
-- [ ] HIPAA, SOC 2 Type II compliance
-- [ ] Integrations — LangGraph, CrewAI, Strands, Bedrock, Datadog, Segment
-
----
-
-## Getting Started
-
-> **AICore is in pre-alpha.** The API surface is not yet stable. Watch this repo for updates.
+### Example Stripe Flow
 
 ```bash
-# Clone the repository
-git clone https://github.com/useaicore/aicore.git
-cd aicore
-
-# Install dependencies
-npm install
-
-# Run in development mode
-npm run dev
-```
-
-Once published:
-
-```bash
+npm install stripe
 npx aicore init
 ```
+
+CLI detects `stripe` and asks:
+
+> Detected Stripe. What are you adding first?
+> 1) Subscriptions  2) One-time payments  3) Invoices  4) I’m not sure yet
+
+AICore creates `.aicore/context/providers/stripe/` and pre-fills the relevant file with Stripe doc links, AICore-written explanations, and empty project-specific slots.
+
+### Explicitly NOT in Phase 1
+- No Context Registry or community templates
+- No ClickHouse, BullMQ, or complex analytics pipeline
+- No team management, SSO, or enterprise features
+- No semantic search or vector DB
+
+---
+
+## Phase 1 Build Checklist
+
+> Updated live as we build. Checked = committed and working.
+
+**Monorepo & Scaffold**
+- [ ] Initialise Turborepo monorepo structure
+- [ ] Scaffold `packages/sdk`
+- [ ] Scaffold `packages/worker` (Cloudflare Worker)
+- [ ] Scaffold `packages/cli` (`npx aicore`)
+- [ ] Scaffold `packages/types` (shared TypeScript contracts)
+- [ ] Scaffold `packages/logger` (local JSONL logger)
+- [ ] Configure shared TypeScript, ESLint, build pipeline
+
+**Type Contracts**
+- [ ] Metadata schema (all Phase 1–5 fields, reserved from day one)
+- [ ] Telemetry / log schema (same schema that goes to ClickHouse in Phase 2)
+- [ ] Provider adapter interface (streaming + non-streaming)
+- [ ] SDK configuration interface
+- [ ] Routing rule interface (stub for Phase 2)
+
+**SDK (`packages/sdk`)**
+- [ ] `ai.chat(prompt, options)` — returns `ChatResponse`
+- [ ] `ai.stream(prompt, options)` — returns `AsyncIterable<StreamChunk>`
+- [ ] `ai.complete(prompt, options)` — returns `CompletionResponse`
+- [ ] Shadow mode implementation
+- [ ] Terminal output on first call: cost, latency, model, savings estimate
+- [ ] OpenAI provider adapter
+- [ ] Anthropic provider adapter
+- [ ] Groq provider adapter
+- [ ] Gemini provider adapter
+
+**Cloudflare Worker Proxy (`packages/worker`)**
+- [ ] Worker entrypoint pattern with `ctx.waitUntil` logging
+- [ ] Provider request forwarding
+- [ ] Basic logging: model, tokens, cost, latency
+- [ ] Workspace key validation
+- [ ] Error handling and fallback
+
+**Local Logger (`packages/logger`)**
+- [ ] Write to `.aicorelogs.jsonl` (newline-delimited JSON)
+- [ ] Uses exact telemetry schema (same fields as Phase 2 ClickHouse)
+- [ ] Abstract interface (swappable with BullMQ in Phase 2 via config)
+- [ ] Never throws — logging failure must not affect the hot path
+
+**CLI — `npx aicore init` (`packages/cli`)**
+- [ ] Detect stack from `package.json` (framework, providers, infra)
+- [ ] Generate `overview.md` and `stack.md`
+- [ ] Generate `workflow/coding-tools.md` and `workflow/prompts.md`
+- [ ] Detect Stripe — one-question flow — generate `providers/stripe/*`
+- [ ] Idempotent (safe to run multiple times)
+- [ ] Graceful when no `package.json` is present
+
+**Supabase**
+- [ ] Design and create `usagelogs` table in Supabase Postgres
+- [ ] RLS policies for workspace isolation (reserved for Phase 2 but schema correct now)
+
+**Validation**
+- [ ] Dogfood in a real test project (Stripe + one AI provider)
+- [ ] Load test: 1,000 concurrent requests through Worker, no log drops
+- [ ] Failure test: primary provider times out, fallback works
+- [ ] Cost assertion: terminal output matches actual token usage
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Notes |
+|---|---|---|
+| Language | TypeScript (Node 22) | Strict mode, no `any` |
+| Monorepo | Turborepo | Package-based, shared types |
+| SDK | `aicore-sdk` (Node/TS) | npm package |
+| Edge Proxy | Cloudflare Workers | Sub-10ms overhead, `ctx.waitUntil` logging |
+| Backend API | Fastify (Phase 2+) | Stub in Phase 1 |
+| Database | Supabase Postgres | RLS per workspace |
+| Analytics | ClickHouse (Phase 2+) | Not in Phase 1 |
+| Queue | BullMQ + Redis (Phase 2+) | Not in Phase 1 |
+| Dashboard | Next.js 15 (Phase 2+) | Stub in Phase 1 |
+| Auth | better-auth (Phase 2+) | Not in Phase 1 |
+| CLI | Node-based `npx aicore` | |
+
+---
+
+## Full Roadmap
+
+### Phase 1 — SDK + Context *(Weeks 1–4)* 🚧 Building
+- One SDK replaces all provider imports
+- Shadow mode for zero-risk adoption
+- `npx aicore init` — stack detection, auto-generates `.aicore/context/`
+- Terminal cost + latency output on first call
+- Local `.aicorelogs.jsonl` with unified telemetry schema
+
+### Phase 2 — Observability + Team Dashboard *(Weeks 5–12)*
+- BullMQ + Postgres + ClickHouse async logging pipeline
+- Next.js dashboard — call logs, cost by feature, model breakdown
+- Team workspaces with auth (better-auth)
+- Budget alerts at 50%, 75%, 90%
+- Rule-based routing — config-driven, no LLM per request
+
+### Phase 3 — Monetization + Smart Routing *(Weeks 13–20)*
+- Routing engine — offline quality scoring per `taskType`
+- Per-workspace budgets with enforcement at the proxy
+- Stripe billing — Free / Pro ($29) / Team ($99) / Enterprise
+- Cost breakdown dashboards per feature, model, user
+
+### Phase 3.5 — Community Context + Semantic Caching *(Months 5–7)*
+- Community Context Registry — peer-reviewed integration templates
+- `aicore provider add`, `aicore feature add` CLI commands
+- Semantic caching — vector search, similarity thresholds, TTLs
+- Refinement engine — quality scores stored per call
+
+### Phase 4 — Agent-Aware Infrastructure *(Months 7–11)*
+- Agent metadata — `workflowRunId`, `agentId`, `pipelineStep`
+- Per-workflow cost dashboards
+- Agent-aware routing using quality score history
+- Multi-agent budget enforcement
+- `.aicore/context` auto-injection for agent frameworks
+
+### Phase 5 — Enterprise Platform *(Months 11–18)*
+- MCP server — native integration with Claude Code, Cursor, Windsurf
+- SSO, RBAC, audit logs
+- HIPAA, SOC 2 Type II compliance
+- Integrations — LangGraph, CrewAI, Strands, Datadog, Segment
 
 ---
 
 ## Target Launch
 
 | Status | Phase | Est. Launch | Target ARR |
-|--------|-------|-------------|------------|
+|---|---|---|---|
 | Pre-Alpha | Build & Deploy | Q2 2026 | $600k / 18mo |
 
 ---
