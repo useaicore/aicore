@@ -1,9 +1,15 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "src",
+    "outDir": "dist",
+    "module": "esnext",
+    "moduleResolution": "bundler"
   },
   "include": ["src"],
-  "exclude": ["src/**/__tests__", "src/**/*.test.ts", "src/**/*.spec.ts"]
+  "exclude": ["src/**/__tests__", "src/**/*.test.ts", "src/**/*.spec.ts"],
+  "references": [
+    { "path": "../logger" },
+    { "path": "../types" }
+  ]
 }
