@@ -1,0 +1,14 @@
+/** @type {import('ts-jest').JestConfigWithTsJest} */
+export default {
+  preset: 'ts-jest',
+  testEnvironment: 'node',
+  roots: ['<rootDir>/src'],
+  testMatch: ['**/__tests__/**/*.test.ts'],
+  transform: {
+    '^.+\\.tsx?$': ['ts-jest', { useESM: true }],
+  },
+  moduleNameMapper: {
+    '^@aicore/types$': '<rootDir>/../types/src/index.ts',
+  },
+  extensionsToTreatAsEsm: ['.ts']
+};
