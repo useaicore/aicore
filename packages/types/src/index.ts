@@ -42,7 +42,7 @@ export interface AICoreMetadata {
    * @required
    * @example "trace_01H2X..."
    */
-  traceId: string;
+  traceId?: string;
 
   /**
    * The workspace owning this call.
@@ -112,7 +112,7 @@ export interface AICoreMetadata {
    * - Dev: Throws if missing.
    * - Prod: SDK logs warning and drops event.
    */
-  planTier?: AICorePlanTier;
+  planTier: AICorePlanTier;
 
   // --- Phase 1: Performance Hints ---
 
@@ -129,7 +129,7 @@ export interface AICoreMetadata {
    * @phase 1
    * @optional
    */
-  shadowMode?: boolean;
+  shadowMode: boolean;
 
   // --- Phase 2: Observability ---
 
@@ -145,7 +145,7 @@ export interface AICoreMetadata {
    * @phase 2
    * @optional
    */
-  environment?: AICoreEnvironment;
+  environment: AICoreEnvironment;
 
   /**
    * aicore-sdk version string.
@@ -232,4 +232,82 @@ export interface AICoreMetadata {
    * @optional
    */
   parentCallId?: string;
+}
+
+/**
+ * A single usage record representing one completed AI call.
+ * This structure is strictly flat to ensure O(1) ingestion into ClickHouse
+ * and high-performance querying without JSON parsing overhead.
+ */
+export interface AICoreUsageLog extends AICoreMetadata {
+  // --- Performance & Usage ---
+
+  /**
+   * Number of tokens in the prompt.
+   * @required
+   */
+  inputTokens: number;
+
+  /**
+   * Number of tokens in the completion/output.
+   * @required
+   */
+  outputTokens: number;
+
+  /**
+   * Total tokens consumed (inputTokens + outputTokens).
+   * @required
+   */
+  totalTokens: number;
+
+  /**
+   * Total cost of the call in integer cents, rounded UP to the nearest cent.
+   * Calls costing < 1 cent are recorded as 1 cent.
+   * This avoids floating point precision issues in billing and aggregations.
+   * @required
+   * @example 5 (represents $0.05)
+   */
+  costCents: number;
+
+  /**
+   * Total end-to-end latency in milliseconds.
+   * Measured from SDK/Worker request start to response received.
+   * @required
+   */
+  latencyMs: number;
+
+  // --- Shadow Evaluation ---
+
+  /**
+   * CANONICAL BILLING FLAG for shadow evaluation.
+   * Queries and dashboards must use this field as the primary shadow indicator.
+   * MUST be kept in sync with `AICoreMetadata.shadowMode`.
+   * @required
+   */
+  isShadowCall: boolean;
+
+  /**
+   * Potential savings in integer cents if this call was a shadow replacement 
+   * for a more expensive model.
+   * @optional
+   */
+  shadowSavingsCents?: number;
+
+  // --- Status & Errors ---
+
+  /**
+   * Normalized numeric status code.
+   * - HTTP Providers: Use the HTTP status code (e.g. 200, 429, 500).
+   * - Non-HTTP: Map to canonical codes (200=success, 429=rate limited, 500=internal).
+   * @required
+   */
+  statusCode: number;
+
+  /**
+   * Definitive failure flag from the user's perspective.
+   * true if statusCode is not in success range (e.g. 200-299) OR if 
+   * a provider-level error occurred despite HTTP 200.
+   * @required
+   */
+  isError: boolean;
 }
