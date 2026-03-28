@@ -9,6 +9,7 @@ export default {
   },
   moduleNameMapper: {
     '^@aicore/types$': '<rootDir>/../types/src/index.ts',
+    '^(\\.{1,2}/.*)\\.js$': '$1.ts',
   },
   extensionsToTreatAsEsm: ['.ts']
 };
