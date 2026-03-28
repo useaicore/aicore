@@ -14,9 +14,9 @@
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",
     "clean": "turbo run clean && rm -rf node_modules",
-    "dev:telemetry-gateway": "npm run dev --workspace @aicore/telemetry-gateway",
-    "test:telemetry-gateway": "npm test --workspace @aicore/telemetry-gateway",
-    "build:telemetry-gateway": "npm run build --workspace @aicore/telemetry-gateway"
+    "dev:telemetry-gateway": "pnpm --filter @aicore/telemetry-gateway dev",
+    "test:telemetry-gateway": "pnpm --filter @aicore/telemetry-gateway test",
+    "build:telemetry-gateway": "pnpm --filter @aicore/telemetry-gateway build"
   },
   "devDependencies": {
     "@types/commander": "^2.12.5",

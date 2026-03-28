@@ -1,0 +1,5 @@
+﻿
+> @aicore/telemetry-gateway@0.1.0 test C:\Users\Projects\aicore\packages\telemetry-gateway
+> node --experimental-vm-modules --env-file=../../.env node_modules/jest/bin/jest.js
+
+ΓÇëELIFECYCLEΓÇë Test failed. See above for more details.
