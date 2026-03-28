@@ -6,7 +6,7 @@ jest.unstable_mockModule("@aicore/logger", () => ({
 }));
 
 // Dynamically import the app after mocking
-const { default: app } = await import("../index.ts");
+const { default: app } = await import("../index.js");
 const { enqueueUsageLog } = (await import("@aicore/logger")) as any;
 
 describe("Telemetry Gateway - Routes", () => {
