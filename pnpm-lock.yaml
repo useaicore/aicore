@@ -60,7 +60,7 @@ importers:
         version: 29.7.0(@types/node@25.5.0)
       ts-jest:
         specifier: ^29.1.2
-        version: 29.4.6(@babel/core@7.29.0)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.29.0))(jest-util@29.7.0)(jest@29.7.0(@types/node@25.5.0))(typescript@6.0.2)
+        version: 29.4.6(@babel/core@7.29.0)(@jest/transform@30.3.0)(@jest/types@30.3.0)(babel-jest@29.7.0(@babel/core@7.29.0))(jest-util@30.3.0)(jest@29.7.0(@types/node@25.5.0))(typescript@6.0.2)
 
   packages/queue: {}
 
@@ -72,6 +72,34 @@ importers:
       '@aicore/types':
         specifier: workspace:*
         version: link:../types
+
+  packages/telemetry-gateway:
+    dependencies:
+      '@aicore/logger':
+        specifier: workspace:*
+        version: link:../logger
+      '@aicore/types':
+        specifier: workspace:*
+        version: link:../types
+      '@hono/node-server':
+        specifier: ^1.13.8
+        version: 1.19.11(hono@4.12.9)
+      hono:
+        specifier: ^4.7.2
+        version: 4.12.9
+      zod:
+        specifier: ^3.24.2
+        version: 3.25.76
+    devDependencies:
+      '@jest/globals':
+        specifier: ^30.3.0
+        version: 30.3.0
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@25.5.0)
+      ts-jest:
+        specifier: ^29.1.2
+        version: 29.4.6(@babel/core@7.29.0)(@jest/transform@30.3.0)(@jest/types@30.3.0)(babel-jest@29.7.0(@babel/core@7.29.0))(jest-util@30.3.0)(jest@29.7.0(@types/node@25.5.0))(typescript@6.0.2)
 
   packages/types: {}
 
@@ -463,6 +491,12 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@hono/node-server@1.19.11':
+    resolution: {integrity: sha512-dr8/3zEaB+p0D2n/IUrlPF1HZm586qgJNXK1a9fhg/PzdtkK7Ksd5l312tJX2yBuALqDYBlG20QEbayqPyxn+g==}
+    engines: {node: '>=18.14.1'}
+    peerDependencies:
+      hono: ^4
 
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
@@ -1204,6 +1238,10 @@ packages:
   hasown@2.0.2:
     resolution: {integrity: sha512-0hJU9SCPvmMzIBdZFqNPXWa6dqh7WdH0cII9y+CyS8rG3nL48Bclra9HmKhVVUHyPWNH5Y7xDwAB7bfgSjkUMQ==}
     engines: {node: '>= 0.4'}
+
+  hono@4.12.9:
+    resolution: {integrity: sha512-wy3T8Zm2bsEvxKZM5w21VdHDDcwVS1yUFFY6i8UobSsKfFceT7TOwhbhfKsDyx7tYQlmRM5FLpIuYvNFyjctiA==}
+    engines: {node: '>=16.9.0'}
 
   html-escaper@2.0.2:
     resolution: {integrity: sha512-H2iMtd0I4Mt5eYiapRdIDjp+XzelXQ0tFE4JS7YFwFevXXMmOp9myNrUvCg0D6ws8iqkRPBfKHgbwig1SmlLfg==}
@@ -1955,6 +1993,9 @@ packages:
   youch@4.1.0-beta.10:
     resolution: {integrity: sha512-rLfVLB4FgQneDr0dv1oddCVZmKjcJ6yX6mS4pU82Mq/Dt9a3cLZQ62pDBL4AUO+uVrCvtWz3ZFUL2HFAFJ/BXQ==}
 
+  zod@3.25.76:
+    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+
 snapshots:
 
   '@babel/code-frame@7.29.0':
@@ -2257,6 +2298,10 @@ snapshots:
 
   '@esbuild/win32-x64@0.27.3':
     optional: true
+
+  '@hono/node-server@1.19.11(hono@4.12.9)':
+    dependencies:
+      hono: 4.12.9
 
   '@img/colour@1.1.0': {}
 
@@ -3118,6 +3163,8 @@ snapshots:
     dependencies:
       function-bind: 1.1.2
 
+  hono@4.12.9: {}
+
   html-escaper@2.0.2: {}
 
   human-signals@2.1.0: {}
@@ -3931,7 +3978,7 @@ snapshots:
     dependencies:
       is-number: 7.0.0
 
-  ts-jest@29.4.6(@babel/core@7.29.0)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.29.0))(jest-util@29.7.0)(jest@29.7.0(@types/node@25.5.0))(typescript@6.0.2):
+  ts-jest@29.4.6(@babel/core@7.29.0)(@jest/transform@30.3.0)(@jest/types@30.3.0)(babel-jest@29.7.0(@babel/core@7.29.0))(jest-util@30.3.0)(jest@29.7.0(@types/node@25.5.0))(typescript@6.0.2):
     dependencies:
       bs-logger: 0.2.6
       fast-json-stable-stringify: 2.1.0
@@ -3946,10 +3993,10 @@ snapshots:
       yargs-parser: 21.1.1
     optionalDependencies:
       '@babel/core': 7.29.0
-      '@jest/transform': 29.7.0
-      '@jest/types': 29.6.3
+      '@jest/transform': 30.3.0
+      '@jest/types': 30.3.0
       babel-jest: 29.7.0(@babel/core@7.29.0)
-      jest-util: 29.7.0
+      jest-util: 30.3.0
 
   tslib@2.8.1: {}
 
@@ -4080,3 +4127,5 @@ snapshots:
       '@speed-highlight/core': 1.2.15
       cookie: 1.1.1
       youch-core: 0.3.3
+
+  zod@3.25.76: {}
