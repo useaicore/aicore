@@ -2,7 +2,7 @@ import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 
 // Mocking @aicore/logger before dynamic imports for ESM compatibility
 jest.unstable_mockModule("@aicore/logger", () => ({
-  enqueueUsageLog: jest.fn().mockResolvedValue(undefined),
+  enqueueUsageLog: jest.fn<any>().mockResolvedValue(undefined),
 }));
 
 // Dynamically import the app after mocking
@@ -68,7 +68,7 @@ describe("Telemetry Gateway - Routes", () => {
     });
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = await res.json() as any;
     expect(body.error).toBe("Invalid usage log");
     expect(body.details.planTier).toBeDefined();
     expect(enqueueUsageLog).not.toHaveBeenCalled();

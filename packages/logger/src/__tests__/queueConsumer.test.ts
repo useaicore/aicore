@@ -2,19 +2,19 @@ import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 
 // ESM Mocking for Jest requires unstable_mockModule before dynamic imports
 jest.unstable_mockModule("../nodeIngest.js", () => ({
-  ingestUsage: jest.fn().mockResolvedValue(undefined),
+  ingestUsage: jest.fn<any>().mockResolvedValue(undefined),
 }));
 
 jest.unstable_mockModule("bullmq", () => ({
   Worker: jest.fn().mockImplementation(() => ({
     on: jest.fn(),
-    close: jest.fn().mockResolvedValue(undefined),
+    close: jest.fn<any>().mockResolvedValue(undefined),
   })),
 }));
 
 jest.unstable_mockModule("../redisConnection.js", () => ({
   getRedisConnection: jest.fn().mockReturnValue({
-    quit: jest.fn().mockResolvedValue(undefined),
+    quit: jest.fn<any>().mockResolvedValue(undefined),
     on: jest.fn(),
   }),
 }));
@@ -48,7 +48,7 @@ describe("queueConsumer", () => {
     startUsageLogConsumer();
     
     // Extract the processor function passed to the Worker constructor
-    const processor = (Worker as jest.Mock).mock.calls[0][1];
+    const processor = (Worker as jest.Mock).mock.calls[0][1] as any;
     
     const mockJob = {
       id: "job_1",
@@ -72,7 +72,7 @@ describe("queueConsumer", () => {
     const spyStderr = jest.spyOn(console, "error").mockImplementation(() => {});
     
     startUsageLogConsumer();
-    const processor = (Worker as jest.Mock).mock.calls[0][1];
+    const processor = (Worker as jest.Mock).mock.calls[0][1] as any;
     
     const mockJob = {
       id: "job_err",
