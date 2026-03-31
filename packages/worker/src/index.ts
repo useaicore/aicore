@@ -193,6 +193,56 @@ async function routeToProvider(
 }
 
 // ---------------------------------------------------------------------------
+// Telemetry
+// ---------------------------------------------------------------------------
+
+interface TelemetryPayload {
+  usage: ProviderCallUsage;
+  taskType?: string;
+}
+
+/**
+ * Best-effort telemetry emission; failures are non-fatal to the request.
+ * Extracts taskType from the original payload if present.
+ */
+async function emitTelemetry(
+  usage: ProviderCallUsage,
+  env: Env,
+  payload: unknown,
+): Promise<void> {
+  try {
+    const body: TelemetryPayload = {
+      usage,
+    };
+
+    if (
+      payload &&
+      typeof payload === "object" &&
+      "taskType" in (payload as Record<string, unknown>)
+    ) {
+      const t = (payload as { taskType?: unknown }).taskType;
+      if (typeof t === "string") {
+        body.taskType = t;
+      }
+    }
+
+    // Fire-and-forget style: we await the fetch so errors can be caught,
+    // but any failure is swallowed and MUST NOT affect the main request.
+    await fetch(env.TELEMETRY_GATEWAY_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    }).catch(() => {
+      // Network-level failure — intentionally ignored.
+    });
+  } catch {
+    // Any error in payload construction or fetch is intentionally ignored.
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Test-only exports — do NOT use in production code
 // ---------------------------------------------------------------------------
 // These exports exist solely to make the pure routing helpers testable in a
@@ -267,8 +317,9 @@ export default {
       const result = await executeAiCall(payload, env);
 
       if (result.ok) {
-        // TODO: emit result.usage to the telemetry gateway via
-        // env.TELEMETRY_GATEWAY_URL once the telemetry adapter is introduced.
+        // Best-effort telemetry emission; failures are non-fatal.
+        _ctx.waitUntil(emitTelemetry(result.usage, env, payload));
+
         return jsonResponse({ ok: true, data: result.data }, 200);
       }
 
