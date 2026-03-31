@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    // Override the production tsconfig: drop @cloudflare/workers-types
+    // (which requires a Worker runtime and breaks Jest), and use the
+    // standard node + jest type definitions instead.
+    "lib": ["ESNext"],
+    "types": ["node", "jest"]
+  },
+  "include": ["src/**/*.test.ts", "src/**/*.spec.ts"]
+}
