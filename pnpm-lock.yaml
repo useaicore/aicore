@@ -121,6 +121,18 @@ importers:
       '@cloudflare/workers-types':
         specifier: latest
         version: 4.20260317.1
+      '@jest/globals':
+        specifier: ^30.3.0
+        version: 30.3.0
+      '@types/jest':
+        specifier: ^29.5.12
+        version: 29.5.14
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@25.5.0)
+      ts-jest:
+        specifier: ^29.1.2
+        version: 29.4.6(@babel/core@7.29.0)(@jest/transform@30.3.0)(@jest/types@30.3.0)(babel-jest@29.7.0(@babel/core@7.29.0))(jest-util@30.3.0)(jest@29.7.0(@types/node@25.5.0))(typescript@6.0.2)
       wrangler:
         specifier: latest
         version: 4.78.0(@cloudflare/workers-types@4.20260317.1)

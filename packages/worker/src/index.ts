@@ -5,14 +5,15 @@
  *
  * Responsibilities (current phase):
  *  - Expose a single POST /v1/ai/chat route.
- *  - Delegate to executeAiCall (placeholder; will be replaced by provider routing).
+ *  - Route the request to the appropriate provider adapter via routeToProvider.
  *  - Translate results and errors into a uniform JSON envelope using @aicore/types.
  *
  * Not in scope here (will be factored out in later steps):
- *  - Provider adapters (OpenAI, Anthropic, …).
+ *  - Full provider adapters beyond OpenAI (Anthropic, Gemini, Groq, …).
  *  - Request-body schema validation.
  *  - Telemetry emission.
  *  - Authentication / rate-limit middleware.
+ *  - Task-type–aware routing (Phase 4 routing engine).
  */
 
 import {
@@ -22,6 +23,8 @@ import {
   // issue fetch() calls to downstream services (proxy, gateway, providers).
   normalizeNetworkError as _normalizeNetworkError, // eslint-disable-line @typescript-eslint/no-unused-vars
 } from "@aicore/types";
+
+import { callOpenAIChat } from "./providers/openai.js";
 
 // ---------------------------------------------------------------------------
 // Cloudflare bindings
@@ -82,55 +85,141 @@ export type ProviderCallResult =
   | { ok: false; error: AICoreError };
 
 // ---------------------------------------------------------------------------
-// Placeholder executor
+// Provider routing
 // ---------------------------------------------------------------------------
 
 /**
- * Placeholder for the real AI call dispatcher.
+ * Recognised provider identifiers.
+ * Extend this union as new adapters are added (Anthropic, Gemini, Groq, …).
+ */
+type ProviderId = "openai" | "anthropic" | "gemini" | "groq";
+
+/**
+ * The subset of the incoming payload that the router inspects.
+ * All other fields are forwarded opaquely to the chosen provider adapter.
  *
- * Returns a ProviderCallResult so the fetch handler can handle both the
- * happy path (with usage metadata) and typed error cases without its own
- * try/catch.
+ * taskType is intentionally present but unused for routing in this phase —
+ * it exists purely to keep a clean seam for Phase 4 task-type–aware routing
+ * (aligned with the `tasktype` column in the usagelogs table).
+ */
+interface RoutedPayload {
+  provider?: ProviderId;
+  model?: string;
+  taskType?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Infers the provider from the model string when `provider` is not explicitly
+ * set by the caller.
  *
- * Replace this stub with real provider routing in a later step.
+ * Only the OpenAI family is active in this phase; commented-out branches serve
+ * as placeholders so future contributors know exactly where to add new rules.
+ */
+function inferProviderFromModel(model?: string): ProviderId | undefined {
+  if (!model) return undefined;
+  const m = model.toLowerCase();
+
+  // OpenAI family (current phase)
+  if (m.startsWith("gpt-") || m.startsWith("gpt4") || m.startsWith("gpt-4")) {
+    return "openai";
+  }
+
+  // Placeholders for future adapters:
+  // if (m.startsWith("claude-")) return "anthropic";
+  // if (m.startsWith("gemini-")) return "gemini";
+  // if (m.startsWith("groq-"))   return "groq";
+
+  return undefined;
+}
+
+/**
+ * Decides which provider to use for a given payload.
+ *
+ * Resolution order:
+ *  1. Explicit `provider` field on the payload (if recognised).
+ *  2. Inference from the `model` string.
+ *  3. Future hook: `taskType`-aware routing engine (Phase 4).
+ *  4. Default to OpenAI.
+ */
+function pickProvider(payload: unknown): ProviderId {
+  if (payload && typeof payload === "object") {
+    const obj = payload as RoutedPayload;
+
+    // 1) Explicit provider wins if recognised
+    if (
+      obj.provider === "openai"
+      // || obj.provider === "anthropic"
+      // || obj.provider === "gemini"
+      // || obj.provider === "groq"
+    ) {
+      return obj.provider;
+    }
+
+    // 2) Infer from model string
+    const inferred = inferProviderFromModel(obj.model);
+    if (inferred) return inferred;
+
+    // 3) Future: taskType-aware routing hook (Phase 4)
+    //    For now obj.taskType is intentionally not used for routing.
+    //    Example rules that will go here:
+    //      if (obj.taskType === "code_review")    → prefer provider X
+    //      if (obj.taskType === "cheap_summary")  → prefer provider Y
+  }
+
+  // 4) Default to OpenAI in this phase
+  return "openai";
+}
+
+/**
+ * Routes `payload` to the appropriate provider adapter and returns its
+ * ProviderCallResult.
+ *
+ * This function does not need its own try/catch — each adapter is responsible
+ * for normalising all error paths into `{ ok: false, error: AICoreError }`.
+ */
+async function routeToProvider(
+  payload: unknown,
+  env: Env,
+): Promise<ProviderCallResult> {
+  const provider = pickProvider(payload);
+
+  switch (provider) {
+    case "openai":
+    default:
+      // OpenAI is the only implemented adapter in this phase.
+      return callOpenAIChat(payload, env);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Test-only exports — do NOT use in production code
+// ---------------------------------------------------------------------------
+// These exports exist solely to make the pure routing helpers testable in a
+// standard Node/Jest environment without spinning up a Worker.  The helpers
+// themselves are side-effect-free and do not touch any Cloudflare APIs.
+
+export { inferProviderFromModel, pickProvider };
+
+// ---------------------------------------------------------------------------
+// Executor (thin delegator)
+// ---------------------------------------------------------------------------
+
+/**
+ * Thin delegator that keeps the fetch handler decoupled from provider routing.
+ *
+ * All routing decisions (provider / model / taskType) are encapsulated inside
+ * routeToProvider, which will evolve independently through Phase 2–4 without
+ * requiring changes to the handler signature.
+ *
+ * This function never throws; all error paths bubble up as
+ * `{ ok: false, error: AICoreError }` from within the adapter.
  */
 async function executeAiCall(
   payload: unknown,
-  _env: Env,
+  env: Env,
 ): Promise<ProviderCallResult> {
-  try {
-    const t0 = Date.now();
-
-    // Placeholder: no real I/O yet — simulate the async boundary that a real
-    // provider HTTP call would introduce.
-    await Promise.resolve();
-
-    const latencyMs = Date.now() - t0;
-
-    const usage: ProviderCallUsage = {
-      provider: "openai",
-      model: "gpt-4.1-mini",
-      // Dummy token / cost values; real figures will come from the provider
-      // response once the OpenAI adapter is wired in.
-      inputTokens: 0,
-      outputTokens: 0,
-      costCents: 0,
-      latencyMs,
-      statusCode: 200,
-    };
-
-    return { ok: true, data: { echo: payload }, usage };
-  } catch (err) {
-    return {
-      ok: false,
-      error: createInternalError({
-        code: "WORKER_EXECUTOR_ERROR",
-        message: "An unexpected error occurred inside the AI call executor.",
-        component: "worker_proxy",
-        rawProviderError: err,
-      }),
-    };
-  }
+  return routeToProvider(payload, env);
 }
 
 // ---------------------------------------------------------------------------
@@ -174,7 +263,7 @@ export default {
         return jsonResponse({ ok: false, error: parseError }, 400);
       }
 
-      // ── Execute (placeholder) ──────────────────────────────────────────────
+      // ── Execute ───────────────────────────────────────────────────────────
       const result = await executeAiCall(payload, env);
 
       if (result.ok) {
