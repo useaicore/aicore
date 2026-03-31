@@ -1,3 +1,5 @@
+export * from "./aicoreError.js";
+
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
