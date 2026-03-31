@@ -1,0 +1,31 @@
+{
+  "name": "@aicore/telemetry-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "build": "tsc -b",
+    "start": "node dist/server.js",
+    "test": "node --experimental-vm-modules --env-file=../../.env node_modules/jest/bin/jest.js",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.7.2",
+    "@hono/node-server": "^1.13.8",
+    "zod": "^3.24.2",
+    "@aicore/logger": "workspace:*",
+    "@aicore/types": "workspace:*"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "@types/jest": "^29.5.12",
+    "@jest/globals": "^30.3.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

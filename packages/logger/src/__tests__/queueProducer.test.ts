@@ -1,5 +1,4 @@
 import { enqueueUsageLog, closeUsageQueue, getUsageQueue } from '../queueProducer.js';
-import type { AICoreUsageLog } from '@aicore/types';
 
 /**
  * Minimal tests for the BullMQ producer.
@@ -8,26 +7,6 @@ import type { AICoreUsageLog } from '@aicore/types';
  * They verify structural integrity and initialization without full integration.
  */
 describe('queueProducer', () => {
-  const dummyRow: AICoreUsageLog = {
-    callId: 'test_1',
-    workspaceId: 'ws_test',
-    timestampMs: Date.now(),
-    feature: 'test' as any,
-    taskType: 'generation',
-    model: 'gpt-mock',
-    provider: 'openai',
-    planTier: 'free',
-    environment: 'development',
-    inputTokens: 10,
-    outputTokens: 20,
-    totalTokens: 30,
-    costCents: 1,
-    latencyMs: 150,
-    isShadowCall: false,
-    shadowMode: false,
-    statusCode: 200,
-    isError: false,
-  };
 
   afterEach(async () => {
     // Attempt singleton reset
