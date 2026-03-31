@@ -2,6 +2,45 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { enqueueUsageLog } from "@aicore/logger";
 import type { AICoreUsageLog } from "@aicore/types";
+import { randomUUID } from "node:crypto";
+import type { Pool } from "pg";
+
+/**
+ * Interface for the telemetry payload received from Cloudflare Workers.
+ * Forward-compatible with future Phase 4 fields.
+ */
+export interface UsageEnvelope {
+  usage: {
+    provider: string;
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+    costCents: number;
+    latencyMs: number;
+    statusCode: number;
+  };
+  taskType?: string;
+  workspaceId?: string;
+  workflowRunId?: string;
+  agentId?: string;
+  pipelineStep?: number;
+  isShadowCall?: boolean;
+  shadowSavingsCents?: number;
+}
+
+export interface TelemetryIngestResponse {
+  ok: true;
+}
+
+export interface TelemetryIngestError {
+  ok: false;
+  error: {
+    code: string;
+    message: string;
+  };
+}
+
+const MAX_BODY_SIZE = 1024 * 1024; // 1MB body limit
 
 /**
  * Zod schema to validate incoming usage log telemetry.
@@ -59,9 +98,14 @@ export const usageLogSchema = z.object({
 export type UsageLogInput = z.infer<typeof usageLogSchema>;
 
 /**
- * Registers the telemetry routes onto the Hono application instance.
+ * Registers telemetry routes onto the Hono application instance.
+ * @param app Hono instance
+ * @param db Postgres connection pool
  */
-export function registerTelemetryRoutes(app: Hono) {
+export function registerTelemetryRoutes(app: Hono, db: Pool) {
+  /**
+   * Existing endpoint for complex usage logs via BullMQ.
+   */
   app.post("/telemetry/usage-log", async (c) => {
     try {
       const body = await c.req.json();
@@ -77,14 +121,111 @@ export function registerTelemetryRoutes(app: Hono) {
         );
       }
 
-      // Enqueue the validated telemetry for background processing
-      // With strict schema validation, we no longer need 'as unknown' cast
       await enqueueUsageLog(validation.data as AICoreUsageLog);
-
       return c.json({ status: "queued" }, 202);
     } catch (err) {
       console.error("[Telemetry Route Error]", err);
       return c.json({ error: "Internal server error" }, 500);
+    }
+  });
+
+  /**
+   * Phase 1 direct-to-Postgres ingest endpoint.
+   * Receives best-effort telemetry from Cloudflare Workers.
+   */
+  app.post("/v1/telemetry/usage", async (c) => {
+    try {
+      // 1. Lightweight body-size guard
+      const contentLength = c.req.header("content-length");
+      if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
+        console.debug("[Telemetry] Rejecting oversized payload:", contentLength);
+        return c.json({
+          ok: false,
+          error: {
+            code: "TELEMETRY_PAYLOAD_TOO_LARGE",
+            message: "Payload exceeds 1MB limit.",
+          }
+        } as TelemetryIngestError, 413);
+      }
+
+      const body = await c.req.json() as UsageEnvelope;
+      const { 
+        usage, 
+        taskType, 
+        workspaceId, 
+        workflowRunId, 
+        agentId, 
+        pipelineStep, 
+        isShadowCall, 
+        shadowSavingsCents 
+      } = body ?? {};
+
+      // 2. Minimal validation with debug logging
+      if (!usage || typeof usage !== "object" || typeof usage.model !== "string" || !usage.model) {
+        console.debug("[Telemetry] Validation failed: Missing or invalid `usage` block", body);
+        return c.json({
+          ok: false,
+          error: {
+            code: "TELEMETRY_INVALID_PAYLOAD",
+            message: "Missing or invalid `usage` block.",
+          },
+        } as TelemetryIngestError, 400);
+      }
+
+      const id = randomUUID();
+      const now = new Date();
+
+      // 3. Persist to usagelogs table
+      await db.query(
+        `
+        INSERT INTO usagelogs (
+          id,
+          workspaceid,
+          model,
+          inputtokens,
+          outputtokens,
+          costcents,
+          latencyms,
+          isshadowcall,
+          shadowsavingscents,
+          tasktype,
+          workflowrunid,
+          agentid,
+          pipelinestep,
+          createdat
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7,
+          $8, $9, $10, $11, $12, $13, $14
+        )
+        `,
+        [
+          id,
+          workspaceId ?? null,
+          usage.model,
+          usage.inputTokens ?? 0,
+          usage.outputTokens ?? 0,
+          usage.costCents ?? 0,
+          usage.latencyMs ?? 0,
+          isShadowCall ?? false,
+          shadowSavingsCents ?? null,
+          taskType ?? null,
+          workflowRunId ?? null,
+          agentId ?? null,
+          pipelineStep ?? null,
+          now,
+        ],
+      );
+
+      return c.json({ ok: true } as TelemetryIngestResponse, 200);
+    } catch (err) {
+      console.error("[Telemetry Ingest Error]", err);
+      return c.json({
+        ok: false,
+        error: {
+          code: "TELEMETRY_INTERNAL_ERROR",
+          message: "An unexpected error occurred during ingestion.",
+        },
+      } as TelemetryIngestError, 500);
     }
   });
 }
