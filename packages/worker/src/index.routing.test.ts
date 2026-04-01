@@ -44,8 +44,8 @@ describe("inferProviderFromModel", () => {
     expect(inferProviderFromModel("gpt-3.5-turbo")).toBe("openai");
   });
 
-  it("returns undefined for claude-3-5-sonnet (Anthropic hook not active yet)", () => {
-    expect(inferProviderFromModel("claude-3-5-sonnet")).toBeUndefined();
+  it("infers anthropic from claude-3-5-sonnet", () => {
+    expect(inferProviderFromModel("claude-3-5-sonnet")).toBe("anthropic");
   });
 
   it("returns undefined for gemini-pro (Gemini hook not active yet)", () => {
@@ -68,6 +68,10 @@ describe("pickProvider", () => {
     expect(pickProvider({ provider: "openai", model: "claude-3-5-sonnet" })).toBe("openai");
   });
 
+  it("uses an explicit provider:anthropic", () => {
+    expect(pickProvider({ provider: "anthropic" })).toBe("anthropic");
+  });
+
   // ── Model inference (no provider field) ─────────────────────────────────
 
   it("infers openai from a gpt-4o model string", () => {
@@ -78,14 +82,14 @@ describe("pickProvider", () => {
     expect(pickProvider({ model: "gpt-4.1-mini" })).toBe("openai");
   });
 
-  it("infers openai from a gpt4-turbo model string (gpt4 prefix)", () => {
-    expect(pickProvider({ model: "gpt4-turbo" })).toBe("openai");
+  it("infers anthropic from a claude-3-opus model string", () => {
+    expect(pickProvider({ model: "claude-3-opus" })).toBe("anthropic");
   });
 
   // ── Fallback to default (openai) scenarios ───────────────────────────────
 
-  it("falls back to openai when model is an unrecognised string (e.g. claude)", () => {
-    expect(pickProvider({ model: "claude-3-5-sonnet" })).toBe("openai");
+  it("infers anthropic from a claude-3-5-sonnet model string", () => {
+    expect(pickProvider({ model: "claude-3-5-sonnet" })).toBe("anthropic");
   });
 
   it("falls back to openai for an empty payload object", () => {
@@ -110,8 +114,8 @@ describe("pickProvider", () => {
     expect(pickProvider({ taskType: "code_review", model: "gpt-4.1-mini" })).toBe("openai");
   });
 
-  it("ignores taskType and falls back to openai when model is unknown", () => {
-    expect(pickProvider({ taskType: "cheap_summary", model: "claude-3-5-sonnet" })).toBe("openai");
+  it("ignores taskType and still infers anthropic from a claude-* model", () => {
+    expect(pickProvider({ taskType: "cheap_summary", model: "claude-3-5-sonnet" })).toBe("anthropic");
   });
 
   it("ignores taskType when payload has no model or provider at all", () => {
@@ -120,9 +124,7 @@ describe("pickProvider", () => {
 
   // ── Unknown / future provider values are not recognised yet ─────────────
 
-  it("ignores an unrecognised provider value and falls back to openai", () => {
-    // "anthropic" is in the ProviderId union but not yet wired in pickProvider,
-    // so it must not short-circuit to anything other than the default.
-    expect(pickProvider({ provider: "anthropic" as never })).toBe("openai");
+  it("recognises anthropic as a valid provider value", () => {
+    expect(pickProvider({ provider: "anthropic" })).toBe("anthropic");
   });
 });

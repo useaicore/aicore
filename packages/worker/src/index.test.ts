@@ -9,6 +9,7 @@ describe("Worker Fetch Handler", () => {
     mockEnv = {
       TELEMETRY_GATEWAY_URL: "https://telemetry.example.com",
       OPENAI_API_KEY: "sk-test",
+      ANTHROPIC_API_KEY: "sk-ant-test",
     };
     mockCtx = {
       waitUntil: jest.fn(),
@@ -25,11 +26,11 @@ describe("Worker Fetch Handler", () => {
       model: "gpt-4o-mini"
     };
 
-    (globalThis.fetch as jest.Mock).mockResolvedValue({
+    (globalThis.fetch as any).mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => mockOpenAIResponse,
-    } as any);
+    });
 
     const request = new Request("https://aicore.example.com/v1/ai/chat", {
       method: "POST",
@@ -58,7 +59,7 @@ describe("Worker Fetch Handler", () => {
       }
     };
 
-    (globalThis.fetch as jest.Mock).mockResolvedValue({
+    (globalThis.fetch as any).mockResolvedValue({
       ok: false,
       status: 401,
       json: async () => mockOpenAIError,
@@ -76,5 +77,42 @@ describe("Worker Fetch Handler", () => {
     expect(response.status).toBe(401);
     expect(body.ok).toBe(false);
     expect(body.error.code).toBe("OPENAI_INVALID_API_KEY");
+  });
+
+  it("should route to Anthropic and normalize results for a claude-* model", async () => {
+    const mockAnthropicResponse = {
+      id: "msg_123",
+      type: "message",
+      role: "assistant",
+      model: "claude-3-5-sonnet-20240620",
+      content: [{ type: "text", text: "Hello from Claude!" }],
+      usage: { input_tokens: 15, output_tokens: 25 }
+    };
+
+    (globalThis.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => mockAnthropicResponse,
+    } as any);
+
+    const request = new Request("https://aicore.example.com/v1/ai/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        model: "claude-3-5-sonnet-20240620",
+        messages: [{ role: "user", content: "Hi Claude" }] 
+      }),
+    });
+
+    const response = await worker.fetch(request, mockEnv, mockCtx);
+    const body: any = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.ok).toBe(true);
+    // Data is the raw Anthropic response
+    expect(body.data).toEqual(mockAnthropicResponse);
+    expect(body.usage.provider).toBe("anthropic");
+    expect(body.usage.inputTokens).toBe(15);
+    expect(body.usage.outputTokens).toBe(25);
   });
 });

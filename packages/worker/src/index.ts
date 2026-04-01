@@ -17,29 +17,17 @@
  */
 
 import {
-  type AICoreError,
   createInternalError,
-  // TODO: re-export normalizeNetworkError inside provider adapters when they
-  // issue fetch() calls to downstream services (proxy, gateway, providers).
-  normalizeNetworkError as _normalizeNetworkError, // eslint-disable-line @typescript-eslint/no-unused-vars
 } from "@aicore/types";
 
-import { callOpenAIChat } from "./providers/openai.js";
+import { type ProviderChatParams, type ProviderCallResult, type ProviderCallUsage, type Env } from "./providers/providerAdapter.js";
+import { registry } from "./providers/registry.js";
 
 // ---------------------------------------------------------------------------
 // Cloudflare bindings
 // ---------------------------------------------------------------------------
 
-/**
- * Cloudflare Worker environment bindings.
- * Extend this interface as new secrets / services / KV namespaces are added.
- */
-export interface Env {
-  /** Base URL of the internal telemetry gateway service. */
-  TELEMETRY_GATEWAY_URL: string;
-  /** OpenAI API key — placeholder; will be consumed by the OpenAI adapter. */
-  OPENAI_API_KEY: string;
-}
+// Env is now imported from ./providers/providerAdapter.js
 
 // ---------------------------------------------------------------------------
 // Utilities
@@ -61,28 +49,7 @@ function jsonResponse(body: unknown, status: number): Response {
 // Provider call types
 // ---------------------------------------------------------------------------
 
-/**
- * Usage and performance metadata captured for every AI provider call.
- * Consumed by the telemetry gateway in a later step.
- */
-export interface ProviderCallUsage {
-  provider: string;
-  model: string;
-  inputTokens: number;
-  outputTokens: number;
-  costCents: number;
-  latencyMs: number;
-  statusCode: number;
-}
-
-/**
- * Discriminated union returned by executeAiCall.
- * On success, carries both the model response and usage metadata.
- * On failure, carries a fully-formed AICoreError.
- */
-export type ProviderCallResult =
-  | { ok: true; data: unknown; usage: ProviderCallUsage }
-  | { ok: false; error: AICoreError };
+// Provider types are now imported from ./providers/providerAdapter.js
 
 // ---------------------------------------------------------------------------
 // Provider routing
@@ -120,13 +87,15 @@ function inferProviderFromModel(model?: string): ProviderId | undefined {
   if (!model) return undefined;
   const m = model.toLowerCase();
 
-  // OpenAI family (current phase)
+  // OpenAI family
   if (m.startsWith("gpt-") || m.startsWith("gpt4") || m.startsWith("gpt-4")) {
     return "openai";
   }
 
+  // Anthropic family
+  if (m.startsWith("claude-")) return "anthropic";
+
   // Placeholders for future adapters:
-  // if (m.startsWith("claude-")) return "anthropic";
   // if (m.startsWith("gemini-")) return "gemini";
   // if (m.startsWith("groq-"))   return "groq";
 
@@ -148,8 +117,8 @@ function pickProvider(payload: unknown): ProviderId {
 
     // 1) Explicit provider wins if recognised
     if (
-      obj.provider === "openai"
-      // || obj.provider === "anthropic"
+      obj.provider === "openai" ||
+      obj.provider === "anthropic"
       // || obj.provider === "gemini"
       // || obj.provider === "groq"
     ) {
@@ -184,11 +153,22 @@ async function routeToProvider(
 ): Promise<ProviderCallResult> {
   const provider = pickProvider(payload);
 
-  switch (provider) {
-    case "openai":
-    default:
-      // OpenAI is the only implemented adapter in this phase.
-      return callOpenAIChat(payload, env);
+  try {
+    const adapter = registry.getAdapter(provider);
+    const params: ProviderChatParams = { payload, env };
+    return await adapter.chat(params);
+  } catch (err) {
+    // If the registry throws (unlikely due to pickProvider safeties),
+    // we wrap it as an internal error.
+    return {
+      ok: false,
+      error: createInternalError({
+        code: "PROVIDER_ROUTING_ERROR",
+        message: err instanceof Error ? err.message : "An unexpected error occurred during provider routing.",
+        component: "worker_proxy",
+        rawProviderError: err,
+      }),
+    };
   }
 }
 
