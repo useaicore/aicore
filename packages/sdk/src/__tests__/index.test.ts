@@ -181,18 +181,70 @@ describe("AICore SDK", () => {
   });
 
   describe("stream()", () => {
-    it("should throw the explicit not-implemented message", async () => {
+    it("should yield normalized StreamChunks from the Worker's SSE stream", async () => {
+      const mockChunks = [
+        { type: "message_start", model: "gpt-4o" },
+        { type: "text_delta", delta: "Hello" },
+        { type: "usage", inputTokens: 5, outputTokens: 5 },
+        { type: "message_end", stopReason: "stop" },
+      ];
+
+      const sseStream = new ReadableStream({
+        start(controller) {
+          for (const chunk of mockChunks) {
+            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
+          }
+          controller.close();
+        },
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Map([["Content-Type", "text/event-stream"]]),
+        body: sseStream,
+      } as any);
+
       const sdk = new AICore(config);
-      const stream = sdk.stream(messages, options);
-      
+      const chunks: any[] = [];
+      for await (const chunk of sdk.stream(messages, options)) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks).toHaveLength(4);
+      expect(chunks[0].type).toBe("message_start");
+      expect(chunks[1].delta).toBe("Hello");
+      expect(chunks[2].type).toBe("usage");
+      expect(chunks[3].type).toBe("message_end");
+    });
+
+    it("should throw aicoreError when Worker returns error envelope on stream start", async () => {
+      const mockError: AICoreError = {
+        type: "provider_error",
+        code: "INVALID_REQUEST",
+        message: "Stream failed!",
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        headers: new Map([["Content-Type", "application/json"]]),
+        json: async () => ({ ok: false, error: mockError }),
+      } as any);
+
+      const sdk = new AICore(config);
       try {
-        await stream.next();
+        const iterable = sdk.stream(messages, options);
+        const iterator = iterable[Symbol.asyncIterator]();
+        await iterator.next();
         fail("Should have thrown");
       } catch (err: any) {
-        expect(err.message).toBe("AICore stream() is not implemented yet. Worker streaming is not wired in Phase 1.");
+        expect(err.message).toBe("Stream failed!");
+        expect(err.aicoreError).toEqual(mockError);
       }
     });
   });
+
 });
 
 function fail(msg: string) {
