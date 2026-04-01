@@ -1,12 +1,12 @@
 /**
- * @module providers/openai
+ * @module providers/groq
  *
- * OpenAI Chat Completions adapter for the AICore Cloudflare Worker.
+ * Groq (OpenAI-compatible) API adapter for the AICore Cloudflare Worker.
  */
 
 import {
   type StreamChunk,
-  normalizeOpenAIError,
+  normalizeGroqError,
 } from "@aicore/types";
 import {
   type ProviderAdapter,
@@ -20,8 +20,8 @@ import { createSseTransformer } from "../utils/streamUtils.js";
 // Constants
 // ---------------------------------------------------------------------------
 
-const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
-const DEFAULT_MODEL   = "gpt-4o-mini";
+const GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions";
+const DEFAULT_MODEL = "llama-3.1-70b-versatile";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,11 +33,11 @@ interface ChatMessage {
 }
 
 interface ChatPayload {
-  model?:    string;
-  messages?: Array<ChatMessage>;
+  model:     string;
+  messages: Array<ChatMessage>;
 }
 
-interface OpenAIChatResponse {
+interface GroqChatResponse {
   usage?: {
     prompt_tokens?:     number;
     completion_tokens?: number;
@@ -49,14 +49,14 @@ interface OpenAIChatResponse {
 // ---------------------------------------------------------------------------
 
 /**
- * OpenAI provider adapter implementation.
+ * Groq provider adapter implementation.
  */
-export class OpenAIProvider implements ProviderAdapter {
-  public readonly name = "openai" as const;
+export class GroqProvider implements ProviderAdapter {
+  public readonly name = "groq" as const;
   public readonly supportsStreaming = true;
 
   /**
-   * Sends a chat completion request to OpenAI.
+   * Sends a chat completion request to Groq.
    */
   async chat(params: ProviderChatParams): Promise<ProviderCallResult> {
     const { payload, env } = params;
@@ -68,25 +68,24 @@ export class OpenAIProvider implements ProviderAdapter {
         ok: false,
         error: {
           type:    "validation_error",
-          code:    "OPENAI_INVALID_PAYLOAD",
+          code:    "GROQ_INVALID_PAYLOAD",
           message: parsed.reason,
           hint:    'Ensure the request body contains a "messages" array with at least one { role, content } entry.',
-          details: { provider: "openai", component: "worker_proxy" },
+          details: { provider: "groq", component: "worker_proxy" },
         },
       };
     }
 
-    const model    = parsed.value.model ?? DEFAULT_MODEL;
-    const messages = parsed.value.messages!;
+    const { model, messages } = parsed.value;
 
-    // ── Step 2: Call OpenAI ───────────────────────────────────────────────────
+    // ── Step 2: Call Groq ───────────────────────────────────────────────────
     try {
       const t0 = Date.now();
 
-      const response = await fetch(OPENAI_CHAT_URL, {
+      const response = await fetch(GROQ_CHAT_URL, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${env.OPENAI_API_KEY}`,
+          "Authorization": `Bearer ${env.GROQ_API_KEY}`,
           "Content-Type":  "application/json",
         },
         body: JSON.stringify({ model, messages }),
@@ -102,12 +101,12 @@ export class OpenAIProvider implements ProviderAdapter {
           ...(rawBody ?? {}),
         };
 
-        const error = normalizeOpenAIError({ error: merged });
+        const error = normalizeGroqError({ error: merged });
         return { ok: false, error };
       }
 
       // ── Step 4: Parse success response ───────────────────────────────────
-      const data = await response.json() as OpenAIChatResponse;
+      const data = await response.json() as GroqChatResponse;
 
       const inputTokens  = data.usage?.prompt_tokens     ?? 0;
       const outputTokens = data.usage?.completion_tokens ?? 0;
@@ -117,7 +116,7 @@ export class OpenAIProvider implements ProviderAdapter {
       const costCents = 0;
 
       const usage: ProviderCallUsage = {
-        provider: "openai",
+        provider: "groq",
         model,
         inputTokens,
         outputTokens,
@@ -130,13 +129,13 @@ export class OpenAIProvider implements ProviderAdapter {
 
     } catch (err) {
       // ── Step 5: Network / unexpected errors ───────────────────────────────
-      const error = normalizeOpenAIError({ error: err });
+      const error = normalizeGroqError({ error: err });
       return { ok: false, error };
     }
   }
 
   /**
-   * Sends a streaming chat completion request to OpenAI.
+   * Sends a streaming chat completion request to Groq.
    */
   async stream(params: ProviderChatParams): Promise<ReadableStream<StreamChunk>> {
     const { payload, env } = params;
@@ -149,37 +148,36 @@ export class OpenAIProvider implements ProviderAdapter {
 
     const { model, messages } = parsed.value;
 
-    // ── Step 2: Call OpenAI ──────────────────────────────────────────────────
-    const response = await fetch(OPENAI_CHAT_URL, {
+    // ── Step 2: Call Groq ───────────────────────────────────────────────────
+    const response = await fetch(GROQ_CHAT_URL, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${env.OPENAI_API_KEY}`,
+        "Authorization": `Bearer ${env.GROQ_API_KEY}`,
         "Content-Type":  "application/json",
       },
       body: JSON.stringify({
         model,
         messages,
         stream: true,
-        stream_options: { include_usage: true },
       }),
     });
 
     if (!response.ok) {
       const errorBody = await response.json().catch(() => null);
-      const error = normalizeOpenAIError({ error: errorBody });
+      const error = normalizeGroqError({ error: errorBody });
       throw error;
     }
 
     if (!response.body) {
-      throw new Error("OpenAI response body is empty.");
+      throw new Error("Groq response body is empty.");
     }
 
     // ── Step 3: Transform native SSE to normalized StreamChunks ──────────────
-    return this.createNormalizedStream(response.body, model as string);
+    return this.createNormalizedStream(response.body, model);
   }
 
   /**
-   * Transforms the OpenAI SSE stream into a ReadableStream of StreamChunks.
+   * Transforms the Groq SSE stream into a ReadableStream of StreamChunks.
    * @internal
    */
   private createNormalizedStream(
@@ -208,7 +206,7 @@ export class OpenAIProvider implements ProviderAdapter {
           controller.enqueue({ type: "message_end", stopReason: String(finishReason) });
         }
 
-        // 3) Usage
+        // 3) Usage (Groq often sends usage in the last chunk)
         if (json.usage) {
           controller.enqueue({
             type: "usage",
@@ -249,7 +247,7 @@ export class OpenAIProvider implements ProviderAdapter {
     return {
       ok: true,
       value: {
-        model:    typeof obj["model"] === "string" ? obj["model"] : undefined,
+        model:    typeof obj["model"] === "string" ? (obj["model"] as string) : DEFAULT_MODEL,
         messages: obj["messages"] as Array<ChatMessage>,
       },
     };

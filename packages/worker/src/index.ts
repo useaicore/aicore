@@ -2,44 +2,18 @@
  * @module worker/index
  *
  * AICore Cloudflare Worker — entrypoint.
- *
- * Responsibilities (current phase):
- *  - Expose a single POST /v1/ai/chat route.
- *  - Route the request to the appropriate provider adapter via routeToProvider.
- *  - Translate results and errors into a uniform JSON envelope using @aicore/types.
- *
- * Not in scope here (will be factored out in later steps):
- *  - Full provider adapters beyond OpenAI (Anthropic, Gemini, Groq, …).
- *  - Request-body schema validation.
- *  - Telemetry emission.
- *  - Authentication / rate-limit middleware.
- *  - Task-type–aware routing (Phase 4 routing engine).
  */
 
 import {
-  type AICoreError,
+  type AICoreProvider,
+  type StreamChunk,
   createInternalError,
-  // TODO: re-export normalizeNetworkError inside provider adapters when they
-  // issue fetch() calls to downstream services (proxy, gateway, providers).
-  normalizeNetworkError as _normalizeNetworkError, // eslint-disable-line @typescript-eslint/no-unused-vars
 } from "@aicore/types";
 
-import { callOpenAIChat } from "./providers/openai.js";
-
-// ---------------------------------------------------------------------------
-// Cloudflare bindings
-// ---------------------------------------------------------------------------
-
-/**
- * Cloudflare Worker environment bindings.
- * Extend this interface as new secrets / services / KV namespaces are added.
- */
-export interface Env {
-  /** Base URL of the internal telemetry gateway service. */
-  TELEMETRY_GATEWAY_URL: string;
-  /** OpenAI API key — placeholder; will be consumed by the OpenAI adapter. */
-  OPENAI_API_KEY: string;
-}
+import { type ProviderChatParams, type ProviderCallUsage, type Env } from "./providers/providerAdapter.js";
+import { registry } from "./providers/registry.js";
+import { pickProvider } from "./routing/providerRouting.js";
+import { createSseResponse } from "./utils/streamUtils.js";
 
 // ---------------------------------------------------------------------------
 // Utilities
@@ -47,8 +21,6 @@ export interface Env {
 
 /**
  * Builds a JSON Response with the given body and status code.
- * All API responses produced by this Worker flow through this helper so that
- * headers are consistent and the serialisation path is centralised.
  */
 function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
@@ -58,152 +30,31 @@ function jsonResponse(body: unknown, status: number): Response {
 }
 
 // ---------------------------------------------------------------------------
-// Provider call types
+// Types
 // ---------------------------------------------------------------------------
-
-/**
- * Usage and performance metadata captured for every AI provider call.
- * Consumed by the telemetry gateway in a later step.
- */
-export interface ProviderCallUsage {
-  provider: string;
-  model: string;
-  inputTokens: number;
-  outputTokens: number;
-  costCents: number;
-  latencyMs: number;
-  statusCode: number;
-}
-
-/**
- * Discriminated union returned by executeAiCall.
- * On success, carries both the model response and usage metadata.
- * On failure, carries a fully-formed AICoreError.
- */
-export type ProviderCallResult =
-  | { ok: true; data: unknown; usage: ProviderCallUsage }
-  | { ok: false; error: AICoreError };
-
-// ---------------------------------------------------------------------------
-// Provider routing
-// ---------------------------------------------------------------------------
-
-/**
- * Recognised provider identifiers.
- * Extend this union as new adapters are added (Anthropic, Gemini, Groq, …).
- */
-type ProviderId = "openai" | "anthropic" | "gemini" | "groq";
 
 /**
  * The subset of the incoming payload that the router inspects.
- * All other fields are forwarded opaquely to the chosen provider adapter.
- *
- * taskType is intentionally present but unused for routing in this phase —
- * it exists purely to keep a clean seam for Phase 4 task-type–aware routing
- * (aligned with the `tasktype` column in the usagelogs table).
  */
 interface RoutedPayload {
-  provider?: ProviderId;
+  provider?: AICoreProvider;
   model?: string;
   taskType?: string;
+  stream?: boolean;
   [key: string]: unknown;
 }
-
-/**
- * Infers the provider from the model string when `provider` is not explicitly
- * set by the caller.
- *
- * Only the OpenAI family is active in this phase; commented-out branches serve
- * as placeholders so future contributors know exactly where to add new rules.
- */
-function inferProviderFromModel(model?: string): ProviderId | undefined {
-  if (!model) return undefined;
-  const m = model.toLowerCase();
-
-  // OpenAI family (current phase)
-  if (m.startsWith("gpt-") || m.startsWith("gpt4") || m.startsWith("gpt-4")) {
-    return "openai";
-  }
-
-  // Placeholders for future adapters:
-  // if (m.startsWith("claude-")) return "anthropic";
-  // if (m.startsWith("gemini-")) return "gemini";
-  // if (m.startsWith("groq-"))   return "groq";
-
-  return undefined;
-}
-
-/**
- * Decides which provider to use for a given payload.
- *
- * Resolution order:
- *  1. Explicit `provider` field on the payload (if recognised).
- *  2. Inference from the `model` string.
- *  3. Future hook: `taskType`-aware routing engine (Phase 4).
- *  4. Default to OpenAI.
- */
-function pickProvider(payload: unknown): ProviderId {
-  if (payload && typeof payload === "object") {
-    const obj = payload as RoutedPayload;
-
-    // 1) Explicit provider wins if recognised
-    if (
-      obj.provider === "openai"
-      // || obj.provider === "anthropic"
-      // || obj.provider === "gemini"
-      // || obj.provider === "groq"
-    ) {
-      return obj.provider;
-    }
-
-    // 2) Infer from model string
-    const inferred = inferProviderFromModel(obj.model);
-    if (inferred) return inferred;
-
-    // 3) Future: taskType-aware routing hook (Phase 4)
-    //    For now obj.taskType is intentionally not used for routing.
-    //    Example rules that will go here:
-    //      if (obj.taskType === "code_review")    → prefer provider X
-    //      if (obj.taskType === "cheap_summary")  → prefer provider Y
-  }
-
-  // 4) Default to OpenAI in this phase
-  return "openai";
-}
-
-/**
- * Routes `payload` to the appropriate provider adapter and returns its
- * ProviderCallResult.
- *
- * This function does not need its own try/catch — each adapter is responsible
- * for normalising all error paths into `{ ok: false, error: AICoreError }`.
- */
-async function routeToProvider(
-  payload: unknown,
-  env: Env,
-): Promise<ProviderCallResult> {
-  const provider = pickProvider(payload);
-
-  switch (provider) {
-    case "openai":
-    default:
-      // OpenAI is the only implemented adapter in this phase.
-      return callOpenAIChat(payload, env);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Telemetry
-// ---------------------------------------------------------------------------
 
 interface TelemetryPayload {
   usage: ProviderCallUsage;
   taskType?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Telemetry
+// ---------------------------------------------------------------------------
+
 /**
  * Best-effort telemetry emission; failures are non-fatal to the request.
- * Extracts taskType from the original payload if present.
  */
 async function emitTelemetry(
   usage: ProviderCallUsage,
@@ -211,65 +62,52 @@ async function emitTelemetry(
   payload: unknown,
 ): Promise<void> {
   try {
-    const body: TelemetryPayload = {
-      usage,
-    };
+    const body: TelemetryPayload = { usage };
 
-    if (
-      payload &&
-      typeof payload === "object" &&
-      "taskType" in (payload as Record<string, unknown>)
-    ) {
-      const t = (payload as { taskType?: unknown }).taskType;
+    if (payload && typeof payload === "object") {
+      const t = (payload as Record<string, unknown>).taskType;
       if (typeof t === "string") {
         body.taskType = t;
       }
     }
 
-    // Fire-and-forget style: we await the fetch so errors can be caught,
-    // but any failure is swallowed and MUST NOT affect the main request.
     await fetch(env.TELEMETRY_GATEWAY_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    }).catch(() => {
-      // Network-level failure — intentionally ignored.
-    });
-  } catch {
-    // Any error in payload construction or fetch is intentionally ignored.
-  }
+    }).catch(() => {});
+  } catch {}
 }
 
-// ---------------------------------------------------------------------------
-// Test-only exports — do NOT use in production code
-// ---------------------------------------------------------------------------
-// These exports exist solely to make the pure routing helpers testable in a
-// standard Node/Jest environment without spinning up a Worker.  The helpers
-// themselves are side-effect-free and do not touch any Cloudflare APIs.
-
-export { inferProviderFromModel, pickProvider };
-
-// ---------------------------------------------------------------------------
-// Executor (thin delegator)
-// ---------------------------------------------------------------------------
-
 /**
- * Thin delegator that keeps the fetch handler decoupled from provider routing.
- *
- * All routing decisions (provider / model / taskType) are encapsulated inside
- * routeToProvider, which will evolve independently through Phase 2–4 without
- * requiring changes to the handler signature.
- *
- * This function never throws; all error paths bubble up as
- * `{ ok: false, error: AICoreError }` from within the adapter.
+ * Intercepts the usage chunk in a stream to emit telemetry.
  */
-async function executeAiCall(
-  payload: unknown,
+function withTelemetry(
+  stream: ReadableStream<StreamChunk>,
   env: Env,
-): Promise<ProviderCallResult> {
-  return routeToProvider(payload, env);
+  ctx: ExecutionContext,
+  payload: unknown,
+): ReadableStream<StreamChunk> {
+  const { readable, writable } = new TransformStream<StreamChunk, StreamChunk>({
+    transform(chunk, controller) {
+      if (chunk.type === "usage") {
+        const usage: ProviderCallUsage = {
+          provider: (payload as any).provider ?? "unknown",
+          model: (payload as any).model ?? "unknown",
+          inputTokens: chunk.inputTokens ?? 0,
+          outputTokens: chunk.outputTokens ?? 0,
+          costCents: 0,
+          latencyMs: 0, // Latency is harder to track for streams here
+          statusCode: 200,
+        };
+        ctx.waitUntil(emitTelemetry(usage, env, payload));
+      }
+      controller.enqueue(chunk);
+    },
+  });
+
+  stream.pipeTo(writable).catch(() => {});
+  return readable;
 }
 
 // ---------------------------------------------------------------------------
@@ -279,15 +117,11 @@ async function executeAiCall(
 export default {
   /**
    * Main Cloudflare Worker fetch handler.
-   *
-   * Route table (current phase):
-   *   POST /v1/ai/chat  →  parseBody → executeAiCall → jsonResponse
-   *   *                 →  404
    */
   async fetch(
     request: Request,
     env: Env,
-    _ctx: ExecutionContext,
+    ctx: ExecutionContext,
   ): Promise<Response> {
     try {
       const url = new URL(request.url);
@@ -298,8 +132,6 @@ export default {
       }
 
       // ── Body parsing ───────────────────────────────────────────────────────
-      // We accept any valid JSON at this layer; strict schema validation will
-      // be added in a later step (see validation_error in AICoreErrorType).
       let payload: unknown;
       try {
         payload = await request.json();
@@ -307,41 +139,68 @@ export default {
         const parseError = createInternalError({
           code: "WORKER_INVALID_JSON",
           message: "Request body is not valid JSON.",
-          hint: "Ensure the request body is a well-formed JSON object and Content-Type is application/json.",
           component: "worker_proxy",
         });
         return jsonResponse({ ok: false, error: parseError }, 400);
       }
 
+      // ── Resolve Provider & Adapter ─────────────────────────────────────────
+      const input = payload as RoutedPayload;
+      // TODO: Add support for latency-aware and cost-based routing (Phase 4 engine)
+      const provider = pickProvider(input);
+      const adapter = registry.getAdapter(provider);
+      const params: ProviderChatParams = { payload, env };
+
       // ── Execute ───────────────────────────────────────────────────────────
-      const result = await executeAiCall(payload, env);
-
-      if (result.ok) {
-        // Best-effort telemetry emission; failures are non-fatal.
-        _ctx.waitUntil(emitTelemetry(result.usage, env, payload));
-
-        return jsonResponse({ ok: true, data: result.data, usage: result.usage }, 200);
+      
+      // A) Streaming Path
+      if (input.stream === true) {
+        try {
+          // TODO: Implement shadow mode (Phase 3) - fire-and-forget call to secondary provider
+          const stream = await adapter.stream(params);
+          const telemetryStream = withTelemetry(stream, env, ctx, payload);
+          return createSseResponse(telemetryStream);
+        } catch (err) {
+          console.error("[AICore Worker] Streaming error", err);
+          const error = (err && typeof err === "object" && "type" in err)
+            ? (err as any)
+            : createInternalError({
+                code: "STREAM_INITIALIZATION_ERROR",
+                message: err instanceof Error ? err.message : "Failed to initialize stream.",
+                component: "worker_proxy",
+                rawProviderError: err,
+              });
+          return jsonResponse({ ok: false, error }, error.details?.httpStatusCode ?? 500);
+        }
       }
 
-      // Typed error from the executor — use the provider-supplied status if
-      // present, otherwise default to 500.
-      const httpStatus = result.error.details?.httpStatusCode ?? 500;
-      return jsonResponse({ ok: false, error: result.error }, httpStatus);
+      // B) Unary Path
+      try {
+        const result = await adapter.chat(params);
+        if (result.ok) {
+          ctx.waitUntil(emitTelemetry(result.usage, env, payload));
+          return jsonResponse(result, 200);
+        }
+        const status = result.error.details?.httpStatusCode ?? 500;
+        return jsonResponse(result, status);
+      } catch (err) {
+        const error = createInternalError({
+          code: "UNARY_EXECUTION_ERROR",
+          message: err instanceof Error ? err.message : "An unexpected error occurred during execution.",
+          component: "worker_proxy",
+          rawProviderError: err,
+        });
+        return jsonResponse({ ok: false, error }, 500);
+      }
 
     } catch (err) {
-      // ── Unhandled / unexpected errors ──────────────────────────────────────
-      // Anything that escapes the executor without being wrapped in AICoreError
-      // lands here.  We wrap it, log it, and return a generic 500 so that
-      // internal details are never leaked to the caller.
       console.error("[AICore Worker] Unhandled error", err);
-
       const internalError = createInternalError({
         code: "WORKER_UNHANDLED_ERROR",
         message: "An unexpected error occurred in the AICore Worker.",
         component: "worker_proxy",
         rawProviderError: err,
       });
-
       return jsonResponse({ ok: false, error: internalError }, 500);
     }
   },

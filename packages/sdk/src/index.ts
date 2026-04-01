@@ -12,7 +12,20 @@ import type {
   AICorePlanTier,
   AICoreEnvironment,
   AICoreError,
+  StreamChunk,
 } from "@aicore/types";
+import { StreamNormalizer } from "./streamNormalizer.js";
+
+export type {
+  ChatMessage,
+  Logger,
+  AICoreProvider,
+  AICoreTaskType,
+  AICorePlanTier,
+  AICoreEnvironment,
+  AICoreError,
+  StreamChunk,
+};
 
 // ---------------------------------------------------------------------------
 // SDK Types
@@ -66,10 +79,6 @@ export interface CompletionResponse {
   usage?: UsageMetadata;
 }
 
-export interface StreamChunk {
-  type: "text" | "done";
-  content?: string;
-}
 
 // ---------------------------------------------------------------------------
 // Worker Envelope Types (Internal)
@@ -205,10 +214,60 @@ export class AICore {
 
   /**
    * Async iterable for progressive consumption.
-   * Not implemented in Phase 1.
+   * Calls the Worker's normalized streaming endpoint.
    */
-  async *stream(_messages: ChatMessage[], _options: ChatOptions): AsyncIterable<StreamChunk> {
-    throw new Error("AICore stream() is not implemented yet. Worker streaming is not wired in Phase 1.");
+  async *stream(messages: ChatMessage[], options: ChatOptions): AsyncIterable<StreamChunk> {
+    const model = options.model ?? this.config.defaultModel ?? "gpt-4o-mini";
+    const provider = options.provider ?? this.config.defaultProvider;
+    const callId = crypto.randomUUID();
+    const traceId = options.traceId ?? crypto.randomUUID();
+
+    const url = `${this.endpoint}/v1/ai/chat`;
+
+    const body = {
+      model,
+      provider,
+      stream: true,
+      messages,
+      metadata: {
+        callId,
+        traceId,
+        workspaceId: this.config.workspaceId,
+        feature: options.feature,
+        taskType: options.taskType,
+        ...options.metadata,
+      },
+    };
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (this.config.workspaceKey) {
+      headers["x-workspace-key"] = this.config.workspaceKey;
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const contentType = response.headers.get("Content-Type");
+      if (contentType?.includes("application/json")) {
+        const envelope = (await response.json()) as WorkerResponse;
+        throw toError(envelope, response.status);
+      }
+      throw new Error(`AICore stream request failed with HTTP ${response.status}`);
+    }
+
+    if (!response.body) {
+      throw new Error("AICore stream response body is empty.");
+    }
+
+    const normalizer = new StreamNormalizer();
+    yield* normalizer.normalize(response.body);
   }
 
   private emitTerminalMetrics(provider: string, model: string, usage?: UsageMetadata): void {
@@ -239,9 +298,19 @@ function normalizeEndpoint(endpoint: string): string {
 function extractChatContent(data: unknown): string {
   if (data && typeof data === "object") {
     const d = data as any;
+    // OpenAI & Groq
     if (d.choices?.[0]?.message?.content !== undefined) {
       return String(d.choices[0].message.content);
     }
+    // Anthropic
+    if (Array.isArray(d.content) && d.content[0]?.text !== undefined) {
+      return String(d.content[0].text);
+    }
+    // Gemini
+    if (d.candidates?.[0]?.content?.parts?.[0]?.text !== undefined) {
+      return String(d.candidates[0].content.parts[0].text);
+    }
+    // Legacy OpenAI
     if (d.choices?.[0]?.text !== undefined) {
       return String(d.choices[0].text);
     }
