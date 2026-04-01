@@ -17,11 +17,13 @@
  */
 
 import {
+  type AICoreProvider,
   createInternalError,
 } from "@aicore/types";
 
 import { type ProviderChatParams, type ProviderCallResult, type ProviderCallUsage, type Env } from "./providers/providerAdapter.js";
 import { registry } from "./providers/registry.js";
+import { pickProvider } from "./routing/providerRouting.js";
 
 // ---------------------------------------------------------------------------
 // Cloudflare bindings
@@ -51,93 +53,14 @@ function jsonResponse(body: unknown, status: number): Response {
 
 // Provider types are now imported from ./providers/providerAdapter.js
 
-// ---------------------------------------------------------------------------
-// Provider routing
-// ---------------------------------------------------------------------------
-
-/**
- * Recognised provider identifiers.
- * Extend this union as new adapters are added (Anthropic, Gemini, Groq, …).
- */
-type ProviderId = "openai" | "anthropic" | "gemini" | "groq";
-
 /**
  * The subset of the incoming payload that the router inspects.
- * All other fields are forwarded opaquely to the chosen provider adapter.
- *
- * taskType is intentionally present but unused for routing in this phase —
- * it exists purely to keep a clean seam for Phase 4 task-type–aware routing
- * (aligned with the `tasktype` column in the usagelogs table).
  */
 interface RoutedPayload {
-  provider?: ProviderId;
+  provider?: AICoreProvider;
   model?: string;
   taskType?: string;
   [key: string]: unknown;
-}
-
-/**
- * Infers the provider from the model string when `provider` is not explicitly
- * set by the caller.
- *
- * Only the OpenAI family is active in this phase; commented-out branches serve
- * as placeholders so future contributors know exactly where to add new rules.
- */
-function inferProviderFromModel(model?: string): ProviderId | undefined {
-  if (!model) return undefined;
-  const m = model.toLowerCase();
-
-  // OpenAI family
-  if (m.startsWith("gpt-") || m.startsWith("gpt4") || m.startsWith("gpt-4")) {
-    return "openai";
-  }
-
-  // Anthropic family
-  if (m.startsWith("claude-")) return "anthropic";
-
-  // Placeholders for future adapters:
-  // if (m.startsWith("gemini-")) return "gemini";
-  // if (m.startsWith("groq-"))   return "groq";
-
-  return undefined;
-}
-
-/**
- * Decides which provider to use for a given payload.
- *
- * Resolution order:
- *  1. Explicit `provider` field on the payload (if recognised).
- *  2. Inference from the `model` string.
- *  3. Future hook: `taskType`-aware routing engine (Phase 4).
- *  4. Default to OpenAI.
- */
-function pickProvider(payload: unknown): ProviderId {
-  if (payload && typeof payload === "object") {
-    const obj = payload as RoutedPayload;
-
-    // 1) Explicit provider wins if recognised
-    if (
-      obj.provider === "openai" ||
-      obj.provider === "anthropic"
-      // || obj.provider === "gemini"
-      // || obj.provider === "groq"
-    ) {
-      return obj.provider;
-    }
-
-    // 2) Infer from model string
-    const inferred = inferProviderFromModel(obj.model);
-    if (inferred) return inferred;
-
-    // 3) Future: taskType-aware routing hook (Phase 4)
-    //    For now obj.taskType is intentionally not used for routing.
-    //    Example rules that will go here:
-    //      if (obj.taskType === "code_review")    → prefer provider X
-    //      if (obj.taskType === "cheap_summary")  → prefer provider Y
-  }
-
-  // 4) Default to OpenAI in this phase
-  return "openai";
 }
 
 /**
@@ -151,15 +74,14 @@ async function routeToProvider(
   payload: unknown,
   env: Env,
 ): Promise<ProviderCallResult> {
-  const provider = pickProvider(payload);
+  const input = payload as RoutedPayload;
+  const provider = pickProvider(input);
 
   try {
     const adapter = registry.getAdapter(provider);
     const params: ProviderChatParams = { payload, env };
     return await adapter.chat(params);
   } catch (err) {
-    // If the registry throws (unlikely due to pickProvider safeties),
-    // we wrap it as an internal error.
     return {
       ok: false,
       error: createInternalError({
@@ -229,7 +151,7 @@ async function emitTelemetry(
 // standard Node/Jest environment without spinning up a Worker.  The helpers
 // themselves are side-effect-free and do not touch any Cloudflare APIs.
 
-export { inferProviderFromModel, pickProvider };
+export { };
 
 // ---------------------------------------------------------------------------
 // Executor (thin delegator)
