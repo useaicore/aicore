@@ -5,10 +5,8 @@
  */
 
 import {
-  type AICoreError,
   type StreamChunk,
   normalizeGroqError,
-  createInternalError,
 } from "@aicore/types";
 import {
   type ProviderAdapter,

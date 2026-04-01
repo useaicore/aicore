@@ -7,14 +7,12 @@
 import {
   type StreamChunk,
   normalizeOpenAIError,
-  createInternalError
 } from "@aicore/types";
 import {
   type ProviderAdapter,
   type ProviderChatParams,
   type ProviderCallResult,
-  type ProviderCallUsage,
-  type Env
+  type ProviderCallUsage
 } from "./providerAdapter.js";
 import { createSseTransformer } from "../utils/streamUtils.js";
 

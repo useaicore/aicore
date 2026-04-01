@@ -39,18 +39,9 @@ interface GeminiContent {
   parts: GeminiPart[];
 }
 
-interface GeminiPayload {
-  model: string;
-  contents: GeminiContent[];
-  generationConfig?: {
-    temperature?: number;
-    maxOutputTokens?: number;
-    topP?: number;
-    topK?: number;
-  };
-}
 
 interface GeminiChatResponse {
+
   candidates: Array<{
     content: GeminiContent;
     finishReason: string;
