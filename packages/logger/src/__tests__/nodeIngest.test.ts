@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import type { AICoreUsageLog } from "@aicore/types";
+import { Features } from "@aicore/types";
 
 describe("ingestUsage (node entrypoint)", () => {
   let tmpDir: string;
@@ -27,7 +28,7 @@ describe("ingestUsage (node entrypoint)", () => {
     traceId: "trace_ingest_1",
     workspaceId: "ws_ingest_1",
     timestampMs: Date.now(),
-    feature: "chat" as any,
+    feature: Features.chat,
     taskType: "generation",
     model: "gpt-4",
     provider: "openai",
