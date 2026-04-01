@@ -6,6 +6,7 @@
 
 import {
   type AICoreProvider,
+  type StreamChunk,
   createInternalError,
 } from "@aicore/types";
 
@@ -78,6 +79,37 @@ async function emitTelemetry(
   } catch {}
 }
 
+/**
+ * Intercepts the usage chunk in a stream to emit telemetry.
+ */
+function withTelemetry(
+  stream: ReadableStream<StreamChunk>,
+  env: Env,
+  ctx: ExecutionContext,
+  payload: unknown,
+): ReadableStream<StreamChunk> {
+  const { readable, writable } = new TransformStream<StreamChunk, StreamChunk>({
+    transform(chunk, controller) {
+      if (chunk.type === "usage") {
+        const usage: ProviderCallUsage = {
+          provider: (payload as any).provider ?? "unknown",
+          model: (payload as any).model ?? "unknown",
+          inputTokens: chunk.inputTokens ?? 0,
+          outputTokens: chunk.outputTokens ?? 0,
+          costCents: 0,
+          latencyMs: 0, // Latency is harder to track for streams here
+          statusCode: 200,
+        };
+        ctx.waitUntil(emitTelemetry(usage, env, payload));
+      }
+      controller.enqueue(chunk);
+    },
+  });
+
+  stream.pipeTo(writable).catch(() => {});
+  return readable;
+}
+
 // ---------------------------------------------------------------------------
 // Worker handler
 // ---------------------------------------------------------------------------
@@ -126,7 +158,8 @@ export default {
         try {
           // TODO: Implement shadow mode (Phase 3) - fire-and-forget call to secondary provider
           const stream = await adapter.stream(params);
-          return createSseResponse(stream);
+          const telemetryStream = withTelemetry(stream, env, ctx, payload);
+          return createSseResponse(telemetryStream);
         } catch (err) {
           console.error("[AICore Worker] Streaming error", err);
           const error = (err && typeof err === "object" && "type" in err)

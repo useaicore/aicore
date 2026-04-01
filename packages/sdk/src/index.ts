@@ -14,6 +14,7 @@ import type {
   AICoreError,
   StreamChunk,
 } from "@aicore/types";
+import { StreamNormalizer } from "./streamNormalizer.js";
 
 export type {
   ChatMessage,
@@ -265,36 +266,8 @@ export class AICore {
       throw new Error("AICore stream response body is empty.");
     }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split("\n\n");
-        buffer = parts.pop() ?? "";
-
-        for (const part of parts) {
-          const line = part.trim();
-          if (!line || !line.startsWith("data: ")) continue;
-
-          const data = line.slice(6);
-          try {
-            const chunk = JSON.parse(data) as StreamChunk;
-            yield chunk;
-            if (chunk.type === "error") return;
-          } catch (err) {
-            // Ignore malformed JSON in stream
-          }
-        }
-      }
-    } finally {
-      reader.releaseLock();
-    }
+    const normalizer = new StreamNormalizer();
+    yield* normalizer.normalize(response.body);
   }
 
   private emitTerminalMetrics(provider: string, model: string, usage?: UsageMetadata): void {

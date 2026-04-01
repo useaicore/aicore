@@ -13,8 +13,10 @@ import {
   type ProviderAdapter,
   type ProviderChatParams,
   type ProviderCallResult,
-  type ProviderCallUsage
+  type ProviderCallUsage,
+  type Env
 } from "./providerAdapter.js";
+import { createSseTransformer } from "../utils/streamUtils.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -186,60 +188,42 @@ export class OpenAIProvider implements ProviderAdapter {
     nativeStream: ReadableStream<Uint8Array>,
     model: string,
   ): ReadableStream<StreamChunk> {
-    const textDecoder = new TextDecoder();
-    let buffer = "";
+    return nativeStream.pipeThrough(createSseTransformer<StreamChunk>((event, controller) => {
+      const { data } = event;
+      if (data === "[DONE]") {
+        controller.enqueue({ type: "message_end" });
+        return;
+      }
 
-    return nativeStream.pipeThrough(new TransformStream<Uint8Array, StreamChunk>({
+      try {
+        const json = JSON.parse(data);
+
+        // 1) Text delta
+        const content = json.choices?.[0]?.delta?.content;
+        if (content !== undefined && content !== null) {
+          controller.enqueue({ type: "text_delta", delta: String(content) });
+        }
+
+        // 2) Finish reason
+        const finishReason = json.choices?.[0]?.finish_reason;
+        if (finishReason) {
+          controller.enqueue({ type: "message_end", stopReason: String(finishReason) });
+        }
+
+        // 3) Usage
+        if (json.usage) {
+          controller.enqueue({
+            type: "usage",
+            inputTokens: json.usage.prompt_tokens,
+            outputTokens: json.usage.completion_tokens,
+          });
+        }
+      } catch (err) {
+        // Ignore malformed JSON chunks
+      }
+    })).pipeThrough(new TransformStream({
       start(controller) {
         controller.enqueue({ type: "message_start", model });
-      },
-
-      transform(chunk, controller) {
-        buffer += textDecoder.decode(chunk, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith("data: ")) continue;
-
-          const data = trimmed.slice(6);
-          if (data === "[DONE]") {
-            controller.enqueue({ type: "message_end" });
-            continue;
-          }
-
-          try {
-            const json = JSON.parse(data);
-
-            // 1) Text delta
-            const content = json.choices?.[0]?.delta?.content;
-            if (content !== undefined && content !== null) {
-              controller.enqueue({ type: "text_delta", delta: String(content) });
-            }
-
-            // 2) Finish reason
-            const finishReason = json.choices?.[0]?.finish_reason;
-            if (finishReason) {
-              controller.enqueue({ type: "message_end", stopReason: String(finishReason) });
-            }
-
-            // 3) Usage
-            if (json.usage) {
-              controller.enqueue({
-                type: "usage",
-                inputTokens: json.usage.prompt_tokens,
-                outputTokens: json.usage.completion_tokens,
-              });
-            }
-          } catch (err) {
-            // Ignore malformed JSON chunks in the stream
-          }
-        }
-      },
-
-      flush(controller) {
-        // Final cleanup if any remaining buffer
       }
     }));
   }

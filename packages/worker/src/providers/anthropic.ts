@@ -14,6 +14,10 @@ import {
   type ProviderCallResult,
   type ProviderCallUsage
 } from "./providerAdapter.js";
+import { 
+  toAnthropicMessages, 
+  createSseTransformer 
+} from "../utils/streamUtils.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -86,7 +90,8 @@ export class AnthropicProvider implements ProviderAdapter {
       };
     }
 
-    const { model, messages } = parsed.value;
+    const { model, messages: rawMessages } = parsed.value;
+    const { system, messages } = toAnthropicMessages(rawMessages);
 
     // ── Step 2: Call Anthropic ───────────────────────────────────────────────
     try {
@@ -101,8 +106,9 @@ export class AnthropicProvider implements ProviderAdapter {
         },
         body: JSON.stringify({
           model,
+          system,
           messages,
-          max_tokens: 1024, // Required by Anthropic; can be made dynamic later
+          max_tokens: 1024,
         }),
       });
 
@@ -161,7 +167,8 @@ export class AnthropicProvider implements ProviderAdapter {
       throw new Error(parsed.reason);
     }
 
-    const { model, messages } = parsed.value;
+    const { model, messages: rawMessages } = parsed.value;
+    const { system, messages } = toAnthropicMessages(rawMessages);
 
     // ── Step 2: Call Anthropic ───────────────────────────────────────────────
     const response = await fetch(ANTHROPIC_MESSAGES_URL, {
@@ -173,6 +180,7 @@ export class AnthropicProvider implements ProviderAdapter {
       },
       body: JSON.stringify({
         model,
+        system,
         messages,
         max_tokens: 1024,
         stream: true,
@@ -201,80 +209,54 @@ export class AnthropicProvider implements ProviderAdapter {
     nativeStream: ReadableStream<Uint8Array>,
     model: string,
   ): ReadableStream<StreamChunk> {
-    const textDecoder = new TextDecoder();
-    let buffer = "";
-    let currentEvent = "";
+    return nativeStream.pipeThrough(createSseTransformer<StreamChunk>((event, controller) => {
+      const { event: type, data } = event;
+      try {
+        const json = JSON.parse(data);
 
-    return nativeStream.pipeThrough(new TransformStream<Uint8Array, StreamChunk>({
+        switch (type) {
+          case "content_block_delta":
+            if (json.delta?.text) {
+              controller.enqueue({ type: "text_delta", delta: json.delta.text });
+            }
+            break;
+
+          case "message_start":
+            if (json.message?.usage) {
+              controller.enqueue({
+                type: "usage",
+                inputTokens: json.message.usage.input_tokens,
+                outputTokens: json.message.usage.output_tokens,
+              });
+            }
+            break;
+
+          case "message_delta":
+            if (json.usage) {
+              controller.enqueue({
+                type: "usage",
+                outputTokens: json.usage.output_tokens,
+              });
+            }
+            break;
+
+          case "message_stop":
+            controller.enqueue({ type: "message_end" });
+            break;
+
+          case "error":
+            controller.enqueue({
+              type: "error",
+              error: normalizeAnthropicError({ error: json.error }),
+            });
+            break;
+        }
+      } catch (err) {
+        // Ignore malformed JSON chunks
+      }
+    })).pipeThrough(new TransformStream({
       start(controller) {
         controller.enqueue({ type: "message_start", model });
-      },
-
-      transform(chunk, controller) {
-        buffer += textDecoder.decode(chunk, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-
-          if (trimmed.startsWith("event: ")) {
-            currentEvent = trimmed.slice(7);
-            continue;
-          }
-
-          if (trimmed.startsWith("data: ")) {
-            const data = trimmed.slice(6);
-            try {
-              const json = JSON.parse(data);
-
-              switch (currentEvent) {
-                case "content_block_delta":
-                  if (json.delta?.text) {
-                    controller.enqueue({ type: "text_delta", delta: json.delta.text });
-                  }
-                  break;
-
-                case "message_start":
-                  if (json.message?.usage) {
-                    controller.enqueue({
-                      type: "usage",
-                      inputTokens: json.message.usage.input_tokens,
-                      outputTokens: json.message.usage.output_tokens,
-                    });
-                  }
-                  break;
-
-                case "message_delta":
-                  if (json.usage) {
-                    controller.enqueue({
-                      type: "usage",
-                      outputTokens: json.usage.output_tokens,
-                    });
-                  }
-                  break;
-
-                case "message_stop":
-                  controller.enqueue({ type: "message_end" });
-                  break;
-
-                case "error":
-                  controller.enqueue({
-                    type: "error",
-                    error: normalizeAnthropicError({ error: json.error }),
-                  });
-                  break;
-              }
-            } catch (err) {
-              // Ignore malformed JSON chunks
-            }
-          }
-        }
-      },
-
-      flush(_controller) {
-        // Final cleanup
       }
     }));
   }

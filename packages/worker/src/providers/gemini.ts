@@ -14,6 +14,10 @@ import {
   type ProviderCallResult,
   type ProviderCallUsage
 } from "./providerAdapter.js";
+import { 
+  toGeminiContents, 
+  createSseTransformer 
+} from "../utils/streamUtils.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -92,7 +96,8 @@ export class GeminiProvider implements ProviderAdapter {
       };
     }
 
-    const { model, contents } = parsed.value;
+    const { model, messages: rawMessages } = parsed.value;
+    const { systemInstruction, contents } = toGeminiContents(rawMessages);
     const url = `${BASE_URL}/models/${model}:generateContent?key=${env.GOOGLE_API_KEY}`;
 
     // ── Step 2: Call Gemini ──────────────────────────────────────────────────
@@ -104,7 +109,7 @@ export class GeminiProvider implements ProviderAdapter {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ contents }),
+        body: JSON.stringify({ systemInstruction, contents }),
       });
 
       const latencyMs = Date.now() - t0;
@@ -157,7 +162,8 @@ export class GeminiProvider implements ProviderAdapter {
       throw new Error(parsed.reason);
     }
 
-    const { model, contents } = parsed.value;
+    const { model, messages: rawMessages } = parsed.value;
+    const { systemInstruction, contents } = toGeminiContents(rawMessages);
     const url = `${BASE_URL}/models/${model}:streamGenerateContent?key=${env.GOOGLE_API_KEY}&alt=sse`;
 
     // ── Step 2: Call Gemini ──────────────────────────────────────────────────
@@ -166,7 +172,7 @@ export class GeminiProvider implements ProviderAdapter {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ contents }),
+      body: JSON.stringify({ systemInstruction, contents }),
     });
 
     if (!response.ok) {
@@ -191,69 +197,50 @@ export class GeminiProvider implements ProviderAdapter {
     nativeStream: ReadableStream<Uint8Array>,
     model: string,
   ): ReadableStream<StreamChunk> {
-    const textDecoder = new TextDecoder();
-    let buffer = "";
+    return nativeStream.pipeThrough(createSseTransformer<StreamChunk>((event, controller) => {
+      const { data } = event;
+      try {
+        const json = JSON.parse(data) as GeminiChatResponse;
 
-    return nativeStream.pipeThrough(new TransformStream<Uint8Array, StreamChunk>({
+        // 1) Text delta
+        const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text !== undefined && text !== null) {
+          controller.enqueue({ type: "text_delta", delta: String(text) });
+        }
+
+        // 2) Finish reason
+        const finishReason = json.candidates?.[0]?.finishReason;
+        if (finishReason === "STOP") {
+          controller.enqueue({ type: "message_end", stopReason: "stop" });
+        } else if (finishReason) {
+          controller.enqueue({ type: "message_end", stopReason: String(finishReason).toLowerCase() });
+        }
+
+        // 3) Usage
+        if (json.usageMetadata) {
+          controller.enqueue({
+            type: "usage",
+            inputTokens: json.usageMetadata.promptTokenCount,
+            outputTokens: json.usageMetadata.candidatesTokenCount,
+          });
+        }
+      } catch (err) {
+        // Ignore malformed JSON chunks
+      }
+    })).pipeThrough(new TransformStream({
       start(controller) {
         controller.enqueue({ type: "message_start", model });
-      },
-
-      transform(chunk, controller) {
-        buffer += textDecoder.decode(chunk, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith("data: ")) continue;
-
-          const data = trimmed.slice(6);
-          try {
-            const json = JSON.parse(data) as GeminiChatResponse;
-
-            // 1) Text delta
-            const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (text !== undefined && text !== null) {
-              controller.enqueue({ type: "text_delta", delta: String(text) });
-            }
-
-            // 2) Finish reason
-            const finishReason = json.candidates?.[0]?.finishReason;
-            if (finishReason === "STOP") {
-              controller.enqueue({ type: "message_end", stopReason: "stop" });
-            } else if (finishReason) {
-              controller.enqueue({ type: "message_end", stopReason: String(finishReason).toLowerCase() });
-            }
-
-            // 3) Usage
-            if (json.usageMetadata) {
-              controller.enqueue({
-                type: "usage",
-                inputTokens: json.usageMetadata.promptTokenCount,
-                outputTokens: json.usageMetadata.candidatesTokenCount,
-              });
-            }
-          } catch (err) {
-            // Ignore malformed JSON chunks
-          }
-        }
-      },
-
-      flush(_controller) {
-        // Final cleanup
       }
     }));
   }
 
   /**
    * Narrows `unknown` to `GeminiPayload`.
-   * Maps OpenAI-style `messages` to Gemini-style `contents`.
    * @internal
    */
   private parsePayload(
     payload: unknown,
-  ): { ok: true; value: GeminiPayload } | { ok: false; reason: string } {
+  ): { ok: true; value: { model: string; messages: any[] } } | { ok: false; reason: string } {
     if (payload === null || typeof payload !== "object") {
       return { ok: false, reason: "Request body must be a JSON object." };
     }
@@ -267,17 +254,11 @@ export class GeminiProvider implements ProviderAdapter {
       };
     }
 
-    const messages = obj["messages"] as Array<{ role: string; content: string }>;
-    const contents: GeminiContent[] = messages.map(m => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }]
-    }));
-
     return {
       ok: true,
       value: {
         model:    typeof obj["model"] === "string" ? obj["model"] : DEFAULT_MODEL,
-        contents,
+        messages: obj["messages"],
       },
     };
   }
