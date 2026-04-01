@@ -239,9 +239,19 @@ function normalizeEndpoint(endpoint: string): string {
 function extractChatContent(data: unknown): string {
   if (data && typeof data === "object") {
     const d = data as any;
+    // OpenAI & Groq
     if (d.choices?.[0]?.message?.content !== undefined) {
       return String(d.choices[0].message.content);
     }
+    // Anthropic
+    if (Array.isArray(d.content) && d.content[0]?.text !== undefined) {
+      return String(d.content[0].text);
+    }
+    // Gemini
+    if (d.candidates?.[0]?.content?.parts?.[0]?.text !== undefined) {
+      return String(d.candidates[0].content.parts[0].text);
+    }
+    // Legacy OpenAI
     if (d.choices?.[0]?.text !== undefined) {
       return String(d.choices[0].text);
     }

@@ -20,6 +20,10 @@ export interface Env {
   OPENAI_API_KEY: string;
   /** Anthropic API key. */
   ANTHROPIC_API_KEY: string;
+  /** Google AI API key (Gemini). */
+  GOOGLE_API_KEY: string;
+  /** Groq API key. */
+  GROQ_API_KEY: string;
 }
 
 // ---------------------------------------------------------------------------

@@ -40,9 +40,15 @@ export function inferProviderFromModel(model?: string): AICoreProvider | undefin
     return "anthropic";
   }
 
-  // Placeholders for future adapters:
-  // if (m.startsWith("gemini-")) return "gemini";
-  // if (m.startsWith("groq-"))   return "groq";
+  // Google Gemini family
+  if (m.startsWith("gemini-")) {
+    return "gemini";
+  }
+
+  // OSS family (hosted on Groq)
+  if (m.startsWith("llama") || m.startsWith("mixtral") || m.startsWith("gemma")) {
+    return "groq";
+  }
 
   return undefined;
 }
@@ -59,9 +65,9 @@ export function pickProvider(input: RoutingInput): AICoreProvider {
   // 1) Explicit valid provider wins
   if (
     input.provider === "openai" ||
-    input.provider === "anthropic"
-    // || input.provider === "gemini"
-    // || input.provider === "groq"
+    input.provider === "anthropic" ||
+    input.provider === "gemini" ||
+    input.provider === "groq"
   ) {
     return input.provider;
   }

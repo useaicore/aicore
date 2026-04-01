@@ -8,6 +8,8 @@ import type { AICoreProvider } from "@aicore/types";
 import { type ProviderAdapter } from "./providerAdapter.js";
 import { OpenAIProvider } from "./openai.js";
 import { AnthropicProvider } from "./anthropic.js";
+import { GeminiProvider } from "./gemini.js";
+import { GroqProvider } from "./groq.js";
 
 /**
  * Registry of all available provider adapters.
@@ -23,6 +25,8 @@ class ProviderRegistry {
     // Eagerly register all implemented adapters.
     this.register(new OpenAIProvider());
     this.register(new AnthropicProvider());
+    this.register(new GeminiProvider());
+    this.register(new GroqProvider());
   }
 
   /** Registers a new provider adapter instance. */
