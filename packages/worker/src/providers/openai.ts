@@ -4,7 +4,11 @@
  * OpenAI Chat Completions adapter for the AICore Cloudflare Worker.
  */
 
-import { normalizeOpenAIError } from "@aicore/types";
+import {
+  type StreamChunk,
+  normalizeOpenAIError,
+  createInternalError
+} from "@aicore/types";
 import {
   type ProviderAdapter,
   type ProviderChatParams,
@@ -129,6 +133,115 @@ export class OpenAIProvider implements ProviderAdapter {
       const error = normalizeOpenAIError({ error: err });
       return { ok: false, error };
     }
+  }
+
+  /**
+   * Sends a streaming chat completion request to OpenAI.
+   */
+  async stream(params: ProviderChatParams): Promise<ReadableStream<StreamChunk>> {
+    const { payload, env } = params;
+
+    // ── Step 1: Validate payload ─────────────────────────────────────────────
+    const parsed = this.parsePayload(payload);
+    if (!parsed.ok) {
+      throw new Error(parsed.reason);
+    }
+
+    const { model, messages } = parsed.value;
+
+    // ── Step 2: Call OpenAI ──────────────────────────────────────────────────
+    const response = await fetch(OPENAI_CHAT_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${env.OPENAI_API_KEY}`,
+        "Content-Type":  "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        stream: true,
+        stream_options: { include_usage: true },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      const error = normalizeOpenAIError({ error: errorBody });
+      throw error;
+    }
+
+    if (!response.body) {
+      throw new Error("OpenAI response body is empty.");
+    }
+
+    // ── Step 3: Transform native SSE to normalized StreamChunks ──────────────
+    return this.createNormalizedStream(response.body, model as string);
+  }
+
+  /**
+   * Transforms the OpenAI SSE stream into a ReadableStream of StreamChunks.
+   * @internal
+   */
+  private createNormalizedStream(
+    nativeStream: ReadableStream<Uint8Array>,
+    model: string,
+  ): ReadableStream<StreamChunk> {
+    const textDecoder = new TextDecoder();
+    let buffer = "";
+
+    return nativeStream.pipeThrough(new TransformStream<Uint8Array, StreamChunk>({
+      start(controller) {
+        controller.enqueue({ type: "message_start", model });
+      },
+
+      transform(chunk, controller) {
+        buffer += textDecoder.decode(chunk, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith("data: ")) continue;
+
+          const data = trimmed.slice(6);
+          if (data === "[DONE]") {
+            controller.enqueue({ type: "message_end" });
+            continue;
+          }
+
+          try {
+            const json = JSON.parse(data);
+
+            // 1) Text delta
+            const content = json.choices?.[0]?.delta?.content;
+            if (content !== undefined && content !== null) {
+              controller.enqueue({ type: "text_delta", delta: String(content) });
+            }
+
+            // 2) Finish reason
+            const finishReason = json.choices?.[0]?.finish_reason;
+            if (finishReason) {
+              controller.enqueue({ type: "message_end", stopReason: String(finishReason) });
+            }
+
+            // 3) Usage
+            if (json.usage) {
+              controller.enqueue({
+                type: "usage",
+                inputTokens: json.usage.prompt_tokens,
+                outputTokens: json.usage.completion_tokens,
+              });
+            }
+          } catch (err) {
+            // Ignore malformed JSON chunks in the stream
+          }
+        }
+      },
+
+      flush(controller) {
+        // Final cleanup if any remaining buffer
+      }
+    }));
   }
 
   /**

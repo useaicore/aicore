@@ -85,7 +85,7 @@ export interface ProviderAdapter {
 
   /**
    * Streaming chat completion call.
-   * Yields normalized StreamChunks until the response is terminal.
+   * Returns a ReadableStream of normalized StreamChunks.
    */
-  stream?(params: ProviderChatParams): AsyncIterable<StreamChunk>;
+  stream(params: ProviderChatParams): Promise<ReadableStream<StreamChunk>>;
 }

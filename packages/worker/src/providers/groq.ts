@@ -4,7 +4,12 @@
  * Groq (OpenAI-compatible) API adapter for the AICore Cloudflare Worker.
  */
 
-import { normalizeGroqError } from "@aicore/types";
+import {
+  type AICoreError,
+  type StreamChunk,
+  normalizeGroqError,
+  createInternalError,
+} from "@aicore/types";
 import {
   type ProviderAdapter,
   type ProviderChatParams,
@@ -128,6 +133,114 @@ export class GroqProvider implements ProviderAdapter {
       const error = normalizeGroqError({ error: err });
       return { ok: false, error };
     }
+  }
+
+  /**
+   * Sends a streaming chat completion request to Groq.
+   */
+  async stream(params: ProviderChatParams): Promise<ReadableStream<StreamChunk>> {
+    const { payload, env } = params;
+
+    // ── Step 1: Validate payload ─────────────────────────────────────────────
+    const parsed = this.parsePayload(payload);
+    if (!parsed.ok) {
+      throw new Error(parsed.reason);
+    }
+
+    const { model, messages } = parsed.value;
+
+    // ── Step 2: Call Groq ───────────────────────────────────────────────────
+    const response = await fetch(GROQ_CHAT_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${env.GROQ_API_KEY}`,
+        "Content-Type":  "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        stream: true,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      const error = normalizeGroqError({ error: errorBody });
+      throw error;
+    }
+
+    if (!response.body) {
+      throw new Error("Groq response body is empty.");
+    }
+
+    // ── Step 3: Transform native SSE to normalized StreamChunks ──────────────
+    return this.createNormalizedStream(response.body, model);
+  }
+
+  /**
+   * Transforms the Groq SSE stream into a ReadableStream of StreamChunks.
+   * @internal
+   */
+  private createNormalizedStream(
+    nativeStream: ReadableStream<Uint8Array>,
+    model: string,
+  ): ReadableStream<StreamChunk> {
+    const textDecoder = new TextDecoder();
+    let buffer = "";
+
+    return nativeStream.pipeThrough(new TransformStream<Uint8Array, StreamChunk>({
+      start(controller) {
+        controller.enqueue({ type: "message_start", model });
+      },
+
+      transform(chunk, controller) {
+        buffer += textDecoder.decode(chunk, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith("data: ")) continue;
+
+          const data = trimmed.slice(6);
+          if (data === "[DONE]") {
+            controller.enqueue({ type: "message_end" });
+            continue;
+          }
+
+          try {
+            const json = JSON.parse(data);
+
+            // 1) Text delta
+            const content = json.choices?.[0]?.delta?.content;
+            if (content !== undefined && content !== null) {
+              controller.enqueue({ type: "text_delta", delta: String(content) });
+            }
+
+            // 2) Finish reason
+            const finishReason = json.choices?.[0]?.finish_reason;
+            if (finishReason) {
+              controller.enqueue({ type: "message_end", stopReason: String(finishReason) });
+            }
+
+            // 3) Usage (Groq often sends usage in the last chunk)
+            if (json.usage) {
+              controller.enqueue({
+                type: "usage",
+                inputTokens: json.usage.prompt_tokens,
+                outputTokens: json.usage.completion_tokens,
+              });
+            }
+          } catch (err) {
+            // Ignore malformed JSON chunks
+          }
+        }
+      },
+
+      flush(_controller) {
+        // Final cleanup
+      }
+    }));
   }
 
   /**
