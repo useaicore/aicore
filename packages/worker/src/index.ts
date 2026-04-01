@@ -320,7 +320,7 @@ export default {
         // Best-effort telemetry emission; failures are non-fatal.
         _ctx.waitUntil(emitTelemetry(result.usage, env, payload));
 
-        return jsonResponse({ ok: true, data: result.data }, 200);
+        return jsonResponse({ ok: true, data: result.data, usage: result.usage }, 200);
       }
 
       // Typed error from the executor — use the provider-supplied status if
