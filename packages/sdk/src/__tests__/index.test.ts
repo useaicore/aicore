@@ -111,7 +111,7 @@ describe("AICore SDK", () => {
       }
 
       expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining("request failed"),
+        expect.stringContaining("Worker returned error envelope"),
         undefined,
         expect.objectContaining({ status: 429, error: mockError })
       );
@@ -129,7 +129,7 @@ describe("AICore SDK", () => {
         /received malformed JSON from Worker/
       );
       expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining("failed to parse response JSON"),
+        expect.stringContaining("failed to parse Worker response JSON"),
         expect.any(Error)
       );
     });
