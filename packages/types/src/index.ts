@@ -10,8 +10,52 @@ export interface Logger {
   error(message: string, error?: Error, context?: Record<string, unknown>): void;
 }
 
+export type AICoreFeatureName = 
+  | "chat" 
+  | "summarise" 
+  | "generation" 
+  | "classification" 
+  | "embedding" 
+  | "verification";
+
+export const AICoreFeatureNames: readonly AICoreFeatureName[] = [
+  "chat",
+  "summarise",
+  "generation",
+  "classification",
+  "embedding",
+  "verification"
+];
+
+export function isAICoreFeature(value: string): value is AICoreFeatureName {
+  return (AICoreFeatureNames as readonly string[]).includes(value);
+}
+
 /** Branded type to encourage stable feature vocabularies */
 export type AICoreFeature = string & { __brand?: "AICoreFeature" };
+
+/**
+ * Factory function for creating branded AICoreFeature strings.
+ * Throws if the value is not in the canonical feature list.
+ */
+export function createFeature(value: string): AICoreFeature {
+  if (!isAICoreFeature(value)) {
+    throw new Error(`Invalid feature: "${value}". Allowed features are: ${AICoreFeatureNames.join(", ")}`);
+  }
+  return value as AICoreFeature;
+}
+
+/**
+ * Ergonomic constants for common feature names.
+ */
+export const Features = {
+  chat: createFeature("chat"),
+  summarise: createFeature("summarise"),
+  generation: createFeature("generation"),
+  classification: createFeature("classification"),
+  embedding: createFeature("embedding"),
+  verification: createFeature("verification"),
+} as const;
 
 export type AICoreProvider = "openai" | "anthropic" | "groq" | "gemini";
 

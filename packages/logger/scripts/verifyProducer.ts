@@ -1,4 +1,5 @@
 import type { AICoreUsageLog } from "@aicore/types";
+import { Features } from "@aicore/types";
 import { enqueueUsageLog, closeUsageQueue } from "../src/index.js";
 import { getRedisConnection } from "../src/redisConnection.js";
 
@@ -29,7 +30,7 @@ async function verify() {
     callId: `verify_${Date.now()}`,
     workspaceId: "ws_verify",
     timestampMs: Date.now(),
-    feature: "verification" as any,
+    feature: Features.verification,
     taskType: "generation",
     model: "gpt-mock",
     provider: "openai",

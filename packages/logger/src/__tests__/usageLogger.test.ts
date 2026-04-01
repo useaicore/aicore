@@ -3,6 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { createFileUsageLogger } from '../usageLogger.js';
 import type { AICoreUsageLog } from '@aicore/types';
+import { Features } from '@aicore/types';
 
 describe('FileUsageLogger', () => {
   let tmpDir: string;
@@ -22,7 +23,7 @@ describe('FileUsageLogger', () => {
     traceId: 'trace_1',
     workspaceId: 'ws_1',
     timestampMs: Date.now(),
-    feature: 'chat' as any, // Branded type still requires a cast
+    feature: Features.chat,
     taskType: 'generation',
     model: 'gpt-4',
     provider: 'openai',
