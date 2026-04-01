@@ -1,4 +1,5 @@
 export * from "./aicoreError.js";
+export * from "./streaming.js";
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
