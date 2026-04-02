@@ -1,5 +1,7 @@
 export * from "./aicoreError.js";
 export * from "./streaming.js";
+export * from "./schemas/ai.js";
+export * from "./schemas/repo.js";
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';

@@ -1,0 +1,9 @@
+{
+  "name": "@aicore/worker",
+  "devDependencies": {
+    "wrangler": "latest"
+  },
+  "dependencies": {
+    "hono": "latest"
+  }
+}
