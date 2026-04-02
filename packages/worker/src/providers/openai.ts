@@ -90,7 +90,7 @@ export class OpenAIProvider implements ProviderAdapter {
             type: "config_error",
             code: "OPENAI_MISSING_API_KEY",
             message: "OpenAI API key is missing from the environment.",
-            details: { provider: "openai", component: "worker_proxy" },
+            details: { provider: "openai", component: "worker_proxy", httpStatusCode: 400 },
           },
         };
       }

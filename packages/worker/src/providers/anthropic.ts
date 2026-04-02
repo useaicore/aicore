@@ -104,7 +104,7 @@ export class AnthropicProvider implements ProviderAdapter {
             type: "config_error",
             code: "ANTHROPIC_MISSING_API_KEY",
             message: "Anthropic API key is missing from the environment.",
-            details: { provider: "anthropic", component: "worker_proxy" },
+            details: { provider: "anthropic", component: "worker_proxy", httpStatusCode: 400 },
           },
         };
       }

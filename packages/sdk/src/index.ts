@@ -152,6 +152,7 @@ export class AICore {
         latencySensitive: options.latencySensitive ?? false,
         shadowMode: options.shadowMode ?? false,
         environment: this.config.environment ?? "development",
+        sdkVersion: "1.0.0",
         ...options.metadata,
       },
     };
@@ -243,6 +244,7 @@ export class AICore {
         latencySensitive: options.latencySensitive ?? false,
         shadowMode: options.shadowMode ?? false,
         environment: this.config.environment ?? "development",
+        sdkVersion: "1.0.0",
         ...options.metadata,
       },
     };

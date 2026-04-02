@@ -35,7 +35,10 @@ describe("Worker Fetch Handler", () => {
 
     const request = new Request("https://aicore.example.com/v1/ai/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "x-workspace-key": "sk-test"
+      },
       body: JSON.stringify({ messages: [{ role: "user", content: "Hi" }] }),
     });
 
@@ -68,7 +71,10 @@ describe("Worker Fetch Handler", () => {
 
     const request = new Request("https://aicore.example.com/v1/ai/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "x-workspace-key": "sk-test"
+      },
       body: JSON.stringify({ messages: [{ role: "user", content: "Hi" }] }),
     });
 
