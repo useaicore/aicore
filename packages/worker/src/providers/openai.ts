@@ -83,6 +83,18 @@ export class OpenAIProvider implements ProviderAdapter {
     try {
       const t0 = Date.now();
 
+      if (!env.OPENAI_API_KEY) {
+        return {
+          ok: false,
+          error: {
+            type: "config_error",
+            code: "OPENAI_MISSING_API_KEY",
+            message: "OpenAI API key is missing from the environment.",
+            details: { provider: "openai", component: "worker_proxy" },
+          },
+        };
+      }
+
       const response = await fetch(OPENAI_CHAT_URL, {
         method: "POST",
         headers: {

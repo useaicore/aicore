@@ -16,6 +16,8 @@ import type { AICoreError, AICoreProvider, StreamChunk } from "@aicore/types";
 export interface Env {
   /** Base URL of the internal telemetry gateway service. */
   TELEMETRY_GATEWAY_URL: string;
+  /** Shared secret for SDK ↔ Worker authentication. */
+  WORKSPACE_KEY: string;
   /** OpenAI API key. */
   OPENAI_API_KEY: string;
   /** Anthropic API key. */

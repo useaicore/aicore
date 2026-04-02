@@ -67,7 +67,7 @@ interface AnthropicChatResponse {
  */
 export class AnthropicProvider implements ProviderAdapter {
   public readonly name = "anthropic" as const;
-  public readonly supportsStreaming = false; // Phase 1: not implemented
+  public readonly supportsStreaming = true;
 
   /**
    * Sends a chat completion request to Anthropic.
@@ -96,6 +96,18 @@ export class AnthropicProvider implements ProviderAdapter {
     // ── Step 2: Call Anthropic ───────────────────────────────────────────────
     try {
       const t0 = Date.now();
+
+      if (!env.ANTHROPIC_API_KEY) {
+        return {
+          ok: false,
+          error: {
+            type: "config_error",
+            code: "ANTHROPIC_MISSING_API_KEY",
+            message: "Anthropic API key is missing from the environment.",
+            details: { provider: "anthropic", component: "worker_proxy" },
+          },
+        };
+      }
 
       const response = await fetch(ANTHROPIC_MESSAGES_URL, {
         method: "POST",

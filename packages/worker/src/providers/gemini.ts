@@ -64,7 +64,7 @@ interface GeminiChatResponse {
  */
 export class GeminiProvider implements ProviderAdapter {
   public readonly name = "gemini" as const;
-  public readonly supportsStreaming = false; // Phase 1: not implemented
+  public readonly supportsStreaming = true;
 
   /**
    * Sends a chat completion request to Google Gemini.
@@ -94,6 +94,18 @@ export class GeminiProvider implements ProviderAdapter {
     // ── Step 2: Call Gemini ──────────────────────────────────────────────────
     try {
       const t0 = Date.now();
+
+      if (!env.GOOGLE_API_KEY) {
+        return {
+          ok: false,
+          error: {
+            type: "config_error",
+            code: "GOOGLE_MISSING_API_KEY",
+            message: "Google API key is missing from the environment.",
+            details: { provider: "gemini", component: "worker_proxy" },
+          },
+        };
+      }
 
       const response = await fetch(url, {
         method: "POST",

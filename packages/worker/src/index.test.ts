@@ -7,6 +7,7 @@ describe("Worker Fetch Handler", () => {
 
   beforeEach(() => {
     mockEnv = {
+      WORKSPACE_KEY: "sk-test",
       TELEMETRY_GATEWAY_URL: "https://telemetry.example.com",
       OPENAI_API_KEY: "sk-test",
       ANTHROPIC_API_KEY: "sk-ant-test",
@@ -97,7 +98,10 @@ describe("Worker Fetch Handler", () => {
 
     const request = new Request("https://aicore.example.com/v1/ai/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "x-workspace-key": "sk-test"
+      },
       body: JSON.stringify({ 
         model: "claude-3-5-sonnet-20240620",
         messages: [{ role: "user", content: "Hi Claude" }] 
@@ -114,5 +118,102 @@ describe("Worker Fetch Handler", () => {
     expect(body.usage.provider).toBe("anthropic");
     expect(body.usage.inputTokens).toBe(15);
     expect(body.usage.outputTokens).toBe(25);
+  });
+
+  describe("Authentication", () => {
+    it("should return 401 if x-workspace-key is missing", async () => {
+      const request = new Request("https://aicore.example.com/v1/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: [{ role: "user", content: "Hi" }] }),
+      });
+
+      const response = await worker.fetch(request, mockEnv, mockCtx);
+      const body: any = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(body.ok).toBe(false);
+      expect(body.error.code).toBe("WORKER_AUTH_FAILED");
+    });
+
+    it("should return 401 if x-workspace-key is invalid", async () => {
+      const request = new Request("https://aicore.example.com/v1/ai/chat", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "x-workspace-key": "wrong-key"
+        },
+        body: JSON.stringify({ messages: [{ role: "user", content: "Hi" }] }),
+      });
+
+      const response = await worker.fetch(request, mockEnv, mockCtx);
+      const body: any = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(body.ok).toBe(false);
+      expect(body.error.code).toBe("WORKER_AUTH_FAILED");
+    });
+  });
+
+  describe("Telemetry", () => {
+    it("should send the correct UsageEnvelope schema to the gateway", async () => {
+      const mockResult = { choices: [{ message: { content: "ok" } }], usage: { prompt_tokens: 5, completion_tokens: 5 } };
+      (globalThis.fetch as any).mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => mockResult,
+      });
+
+      const payload = {
+        messages: [{ role: "user", content: "Hi" }],
+        metadata: {
+          workspaceId: "ws_99",
+          taskType: "summarisation",
+          shadowMode: true,
+        }
+      };
+
+      const request = new Request("https://aicore.example.com/v1/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-workspace-key": "sk-test" },
+        body: JSON.stringify(payload),
+      });
+
+      await worker.fetch(request, mockEnv, mockCtx);
+
+      // Verify the second fetch call (which is telemetry)
+      const telemetryCall = (globalThis.fetch as jest.Mock).mock.calls.find(call => 
+        call[0] === "https://telemetry.example.com"
+      );
+      
+      expect(telemetryCall).toBeDefined();
+      const telemetryBody = JSON.parse(telemetryCall![1].body);
+      
+      expect(telemetryBody.usage).toBeDefined();
+      expect(telemetryBody.workspaceId).toBe("ws_99");
+      expect(telemetryBody.taskType).toBe("summarisation");
+      expect(telemetryBody.isShadowCall).toBe(true);
+    });
+  });
+
+  describe("Provider Config", () => {
+    it("should return config_error if provider API key is missing", async () => {
+      // Remove API key from env
+      const { OPENAI_API_KEY, ...envWithoutKey } = mockEnv;
+
+      const request = new Request("https://aicore.example.com/v1/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-workspace-key": "sk-test" },
+        body: JSON.stringify({ messages: [{ role: "user", content: "Hi" }] }),
+      });
+
+      const response = await worker.fetch(request, envWithoutKey, mockCtx);
+      const body: any = await response.json();
+
+      expect(response.status).toBe(400); // or 500/401 depending on how you map config_error
+      expect(body.ok).toBe(false);
+      expect(body.error.type).toBe("config_error");
+      expect(body.error.code).toBe("OPENAI_MISSING_API_KEY");
+    });
   });
 });

@@ -109,6 +109,7 @@ describe("AICore SDK", () => {
         await sdk.chat(messages, options);
         fail("Should have thrown");
       } catch (err: any) {
+        expect(err.name).toBe("AICoreError");
         expect(err.message).toBe("Too fast!");
         expect(err.aicoreError).toEqual(mockError);
       }
@@ -154,6 +155,41 @@ describe("AICore SDK", () => {
       jest.clearAllMocks();
       await sdk.chat(messages, options);
       expect(mockLogger.info).not.toHaveBeenCalled();
+    });
+
+    it("should include sdkVersion in metadata", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Map([["Content-Type", "application/json"]]),
+        json: async () => ({ ok: true, data: {} }),
+      } as any);
+
+      const sdk = new AICore(config);
+      await sdk.chat(messages, options);
+
+      const call = mockFetch.mock.calls[0];
+      const body = JSON.parse(call[1]?.body as string);
+      expect(body.metadata.sdkVersion).toBe("1.0.0");
+    });
+
+    it("should handle legacy usage aliases from Worker", async () => {
+      const mockData = { choices: [{ message: { content: "Hi" } }] };
+      const mockUsage = { prompttokens: 10, completiontokens: 20, totaltokens: 30 };
+      
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Map([["Content-Type", "application/json"]]),
+        json: async () => ({ ok: true, data: mockData, usage: mockUsage }),
+      } as any);
+
+      const sdk = new AICore(config);
+      const result = await sdk.chat(messages, options);
+
+      expect(result.usage?.inputTokens).toBe(10);
+      expect(result.usage?.outputTokens).toBe(20);
+      expect(result.usage?.totalTokens).toBe(30);
     });
   });
 

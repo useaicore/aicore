@@ -82,6 +82,18 @@ export class GroqProvider implements ProviderAdapter {
     try {
       const t0 = Date.now();
 
+      if (!env.GROQ_API_KEY) {
+        return {
+          ok: false,
+          error: {
+            type: "config_error",
+            code: "GROQ_MISSING_API_KEY",
+            message: "Groq API key is missing from the environment.",
+            details: { provider: "groq", component: "worker_proxy" },
+          },
+        };
+      }
+
       const response = await fetch(GROQ_CHAT_URL, {
         method: "POST",
         headers: {

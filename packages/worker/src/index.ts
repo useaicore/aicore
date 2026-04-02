@@ -54,29 +54,38 @@ interface TelemetryPayload {
 // ---------------------------------------------------------------------------
 
 /**
- * Best-effort telemetry emission; failures are non-fatal to the request.
+ * Best-effort telemetry emission to the canonical gateway ingest route.
  */
 async function emitTelemetry(
   usage: ProviderCallUsage,
   env: Env,
-  payload: unknown,
+  payload: any,
 ): Promise<void> {
   try {
-    const body: TelemetryPayload = { usage };
+    const metadata = payload?.metadata ?? {};
+    const url = env.TELEMETRY_GATEWAY_URL;
 
-    if (payload && typeof payload === "object") {
-      const t = (payload as Record<string, unknown>).taskType;
-      if (typeof t === "string") {
-        body.taskType = t;
-      }
-    }
+    // Use the canonical UsageEnvelope shape expected by /v1/telemetry/usage
+    const body: any = {
+      usage,
+      taskType: metadata.taskType,
+      workspaceId: metadata.workspaceId,
+      workflowRunId: metadata.workflowRunId,
+      agentId: metadata.agentId,
+      pipelineStep: metadata.pipelineStep,
+      isShadowCall: metadata.shadowMode ?? false,
+      shadowSavingsCents: metadata.shadowSavingsCents,
+    };
 
-    await fetch(env.TELEMETRY_GATEWAY_URL, {
+    await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    }).catch(() => {});
-  } catch {}
+    });
+  } catch (err) {
+    // Best-effort, do not throw or block
+    console.warn("[AICore Worker] Telemetry emission failed:", err);
+  }
 }
 
 /**
@@ -91,13 +100,14 @@ function withTelemetry(
   const { readable, writable } = new TransformStream<StreamChunk, StreamChunk>({
     transform(chunk, controller) {
       if (chunk.type === "usage") {
+        const metadata = (payload as any).metadata ?? {};
         const usage: ProviderCallUsage = {
-          provider: (payload as any).provider ?? "unknown",
-          model: (payload as any).model ?? "unknown",
+          provider: metadata.provider ?? (payload as any).provider ?? "unknown",
+          model: metadata.model ?? (payload as any).model ?? "unknown",
           inputTokens: chunk.inputTokens ?? 0,
           outputTokens: chunk.outputTokens ?? 0,
-          costCents: 0,
-          latencyMs: 0, // Latency is harder to track for streams here
+          costCents: 0, // Costs calculated at the gateway if pricing exists
+          latencyMs: 0, // End-to-end latency not measurable for stream usage chunk
           statusCode: 200,
         };
         ctx.waitUntil(emitTelemetry(usage, env, payload));
@@ -132,7 +142,7 @@ export default {
       }
 
       // ── Body parsing ───────────────────────────────────────────────────────
-      let payload: unknown;
+      let payload: any;
       try {
         payload = await request.json();
       } catch {
@@ -142,6 +152,17 @@ export default {
           component: "worker_proxy",
         });
         return jsonResponse({ ok: false, error: parseError }, 400);
+      }
+
+      // ── Auth ───────────────────────────────────────────────────────────────
+      const workspaceKey = request.headers.get("x-workspace-key");
+      if (!env.WORKSPACE_KEY || workspaceKey !== env.WORKSPACE_KEY) {
+        const authError = createInternalError({
+          code: "WORKER_AUTH_FAILED",
+          message: "Invalid or missing workspace key.",
+          component: "worker_proxy",
+        });
+        return jsonResponse({ ok: false, error: authError }, 401);
       }
 
       // ── Resolve Provider & Adapter ─────────────────────────────────────────
