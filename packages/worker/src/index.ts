@@ -44,11 +44,6 @@ interface RoutedPayload {
   [key: string]: unknown;
 }
 
-interface TelemetryPayload {
-  usage: ProviderCallUsage;
-  taskType?: string;
-}
-
 // ---------------------------------------------------------------------------
 // Telemetry
 // ---------------------------------------------------------------------------
@@ -60,6 +55,7 @@ async function emitTelemetry(
   usage: ProviderCallUsage,
   env: Env,
   payload: any,
+  isShadow: boolean = false,
 ): Promise<void> {
   try {
     const metadata = payload?.metadata ?? {};
@@ -73,8 +69,9 @@ async function emitTelemetry(
       workflowRunId: metadata.workflowRunId,
       agentId: metadata.agentId,
       pipelineStep: metadata.pipelineStep,
-      isShadowCall: metadata.shadowMode ?? false,
+      isShadowCall: isShadow || metadata.shadowMode || false,
       shadowSavingsCents: metadata.shadowSavingsCents,
+      ttftMs: usage.ttftMs,
     };
 
     await fetch(url, {
@@ -96,9 +93,17 @@ function withTelemetry(
   env: Env,
   ctx: ExecutionContext,
   payload: unknown,
+  startTime: number,
 ): ReadableStream<StreamChunk> {
+  let ttftMs: number | undefined;
+
   const { readable, writable } = new TransformStream<StreamChunk, StreamChunk>({
     transform(chunk, controller) {
+      // Track TTFT on the first text delta
+      if (chunk.type === "text_delta" && ttftMs === undefined) {
+        ttftMs = Date.now() - startTime;
+      }
+
       if (chunk.type === "usage") {
         const metadata = (payload as any).metadata ?? {};
         const usage: ProviderCallUsage = {
@@ -106,8 +111,9 @@ function withTelemetry(
           model: metadata.model ?? (payload as any).model ?? "unknown",
           inputTokens: chunk.inputTokens ?? 0,
           outputTokens: chunk.outputTokens ?? 0,
-          costCents: 0, // Costs calculated at the gateway if pricing exists
-          latencyMs: 0, // End-to-end latency not measurable for stream usage chunk
+          costCents: 0, 
+          latencyMs: Date.now() - startTime,
+          ttftMs,
           statusCode: 200,
         };
         ctx.waitUntil(emitTelemetry(usage, env, payload));
@@ -133,6 +139,7 @@ export default {
     env: Env,
     ctx: ExecutionContext,
   ): Promise<Response> {
+    const startTime = Date.now();
     try {
       const url = new URL(request.url);
 
@@ -174,12 +181,27 @@ export default {
 
       // ── Execute ───────────────────────────────────────────────────────────
       
+      // Shadow Mode (Phase 3) - Trigger a background verification call
+      if (input.shadowMode === true) {
+        ctx.waitUntil((async () => {
+          try {
+            const shadowProvider = provider === "openai" ? "anthropic" : "openai";
+            const shadowAdapter = registry.getAdapter(shadowProvider);
+            const shadowResult = await shadowAdapter.chat({ payload, env });
+            if (shadowResult.ok) {
+              await emitTelemetry(shadowResult.usage, env, payload, true);
+            }
+          } catch (err) {
+            console.warn("[AICore Worker] Shadow call failed:", err);
+          }
+        })());
+      }
+
       // A) Streaming Path
       if (input.stream === true) {
         try {
-          // TODO: Implement shadow mode (Phase 3) - fire-and-forget call to secondary provider
           const stream = await adapter.stream(params);
-          const telemetryStream = withTelemetry(stream, env, ctx, payload);
+          const telemetryStream = withTelemetry(stream, env, ctx, payload, startTime);
           return createSseResponse(telemetryStream);
         } catch (err) {
           console.error("[AICore Worker] Streaming error", err);

@@ -26,6 +26,13 @@ export interface Env {
   GOOGLE_API_KEY: string;
   /** Groq API key. */
   GROQ_API_KEY: string;
+
+  /** Optional API URL overrides for local testing/mocks. */
+  OPENAI_API_URL?: string;
+  /** Optional API URL overrides for local testing/mocks. */
+  ANTHROPIC_API_URL?: string;
+  /** Optional API URL overrides for local testing/mocks. */
+  GOOGLE_API_URL?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -42,6 +49,7 @@ export interface ProviderCallUsage {
   outputTokens: number;
   costCents: number;
   latencyMs: number;
+  ttftMs?: number;
   statusCode: number;
 }
 

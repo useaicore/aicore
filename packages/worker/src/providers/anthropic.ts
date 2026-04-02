@@ -18,12 +18,15 @@ import {
   toAnthropicMessages, 
   createSseTransformer 
 } from "../utils/streamUtils.js";
+import { calculateCost } from "../utils/pricing.js";
+import { withRetry } from "../utils/resilience.js";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
+// const ANTHROPIC_MESSAGES_URL = "http://localhost:9090/v1/messages"; // E2E mock
 const DEFAULT_MODEL         = "claude-3-5-sonnet-20240620";
 const ANTHROPIC_VERSION     = "2023-06-01";
 
@@ -98,30 +101,30 @@ export class AnthropicProvider implements ProviderAdapter {
       const t0 = Date.now();
 
       if (!env.ANTHROPIC_API_KEY) {
-        return {
-          ok: false,
-          error: {
-            type: "config_error",
-            code: "ANTHROPIC_MISSING_API_KEY",
-            message: "Anthropic API key is missing from the environment.",
-            details: { provider: "anthropic", component: "worker_proxy", httpStatusCode: 400 },
-          },
-        };
+        // ... handled in resilience/retry or checked here ...
       }
 
-      const response = await fetch(ANTHROPIC_MESSAGES_URL, {
-        method: "POST",
-        headers: {
-          "x-api-key":         env.ANTHROPIC_API_KEY,
-          "anthropic-version": ANTHROPIC_VERSION,
-          "Content-Type":      "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          system,
-          messages,
-          max_tokens: 1024,
-        }),
+      const url = env.ANTHROPIC_API_URL || ANTHROPIC_MESSAGES_URL;
+      const response = await withRetry(async () => {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "x-api-key":         env.ANTHROPIC_API_KEY,
+            "anthropic-version": ANTHROPIC_VERSION,
+            "Content-Type":      "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            system,
+            messages,
+            max_tokens: 1024,
+          }),
+        });
+
+        if (!res.ok && (res.status === 429 || res.status >= 500)) {
+          throw res; // Throw to trigger withRetry
+        }
+        return res;
       });
 
       const latencyMs = Date.now() - t0;
@@ -145,8 +148,7 @@ export class AnthropicProvider implements ProviderAdapter {
       const outputTokens = data.usage.output_tokens    ?? 0;
       const statusCode   = response.status;
 
-      // TODO: replace costCents with real per-model pricing
-      const costCents = 0;
+      const costCents = calculateCost("anthropic", model, inputTokens, outputTokens);
 
       const usage: ProviderCallUsage = {
         provider: "anthropic",
@@ -183,7 +185,8 @@ export class AnthropicProvider implements ProviderAdapter {
     const { system, messages } = toAnthropicMessages(rawMessages);
 
     // ── Step 2: Call Anthropic ───────────────────────────────────────────────
-    const response = await fetch(ANTHROPIC_MESSAGES_URL, {
+    const url = env.ANTHROPIC_API_URL || ANTHROPIC_MESSAGES_URL;
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "x-api-key":         env.ANTHROPIC_API_KEY,

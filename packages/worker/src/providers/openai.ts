@@ -15,12 +15,15 @@ import {
   type ProviderCallUsage
 } from "./providerAdapter.js";
 import { createSseTransformer } from "../utils/streamUtils.js";
+import { calculateCost } from "../utils/pricing.js";
+import { withRetry } from "../utils/resilience.js";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
+// const OPENAI_CHAT_URL = "http://localhost:9090/v1/chat/completions"; // E2E mock
 const DEFAULT_MODEL   = "gpt-4o-mini";
 
 // ---------------------------------------------------------------------------
@@ -95,13 +98,21 @@ export class OpenAIProvider implements ProviderAdapter {
         };
       }
 
-      const response = await fetch(OPENAI_CHAT_URL, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${env.OPENAI_API_KEY}`,
-          "Content-Type":  "application/json",
-        },
-        body: JSON.stringify({ model, messages }),
+      const url = env.OPENAI_API_URL || OPENAI_CHAT_URL;
+      const response = await withRetry(async () => {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${env.OPENAI_API_KEY}`,
+            "Content-Type":  "application/json",
+          },
+          body: JSON.stringify({ model, messages }),
+        });
+
+        if (!res.ok && (res.status === 429 || res.status >= 500)) {
+          throw res; // Throw to trigger withRetry
+        }
+        return res;
       });
 
       const latencyMs = Date.now() - t0;
@@ -125,8 +136,7 @@ export class OpenAIProvider implements ProviderAdapter {
       const outputTokens = data.usage?.completion_tokens ?? 0;
       const statusCode   = response.status;
 
-      // TODO: replace costCents with real per-model pricing
-      const costCents = 0;
+      const costCents = calculateCost("openai", model, inputTokens, outputTokens);
 
       const usage: ProviderCallUsage = {
         provider: "openai",
@@ -162,7 +172,8 @@ export class OpenAIProvider implements ProviderAdapter {
     const { model, messages } = parsed.value;
 
     // ── Step 2: Call OpenAI ──────────────────────────────────────────────────
-    const response = await fetch(OPENAI_CHAT_URL, {
+    const url = env.OPENAI_API_URL || OPENAI_CHAT_URL;
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${env.OPENAI_API_KEY}`,

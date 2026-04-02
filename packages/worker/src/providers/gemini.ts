@@ -18,12 +18,15 @@ import {
   toGeminiContents, 
   createSseTransformer 
 } from "../utils/streamUtils.js";
+import { calculateCost } from "../utils/pricing.js";
+import { withRetry } from "../utils/resilience.js";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 const BASE_URL      = "https://generativelanguage.googleapis.com/v1beta";
+// const BASE_URL      = "http://localhost:9090"; // E2E mock
 const DEFAULT_MODEL = "gemini-1.5-flash";
 
 // ---------------------------------------------------------------------------
@@ -89,8 +92,7 @@ export class GeminiProvider implements ProviderAdapter {
 
     const { model, messages: rawMessages } = parsed.value;
     const { systemInstruction, contents } = toGeminiContents(rawMessages);
-    const url = `${BASE_URL}/models/${model}:generateContent?key=${env.GOOGLE_API_KEY}`;
-
+    
     // ── Step 2: Call Gemini ──────────────────────────────────────────────────
     try {
       const t0 = Date.now();
@@ -107,12 +109,22 @@ export class GeminiProvider implements ProviderAdapter {
         };
       }
 
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ systemInstruction, contents }),
+      const baseUrl = env.GOOGLE_API_URL || BASE_URL;
+      const url = `${baseUrl}/models/${model}:generateContent?key=${env.GOOGLE_API_KEY}`;
+
+      const response = await withRetry(async () => {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ systemInstruction, contents }),
+        });
+
+        if (!res.ok && (res.status === 429 || res.status >= 500)) {
+          throw res; // Throw to trigger withRetry
+        }
+        return res;
       });
 
       const latencyMs = Date.now() - t0;
@@ -131,8 +143,7 @@ export class GeminiProvider implements ProviderAdapter {
       const outputTokens = data.usageMetadata?.candidatesTokenCount ?? 0;
       const statusCode   = response.status;
 
-      // TODO: replace costCents with real per-model pricing
-      const costCents = 0;
+      const costCents = calculateCost("gemini", model, inputTokens, outputTokens);
 
       const usage: ProviderCallUsage = {
         provider: "gemini",
@@ -167,9 +178,10 @@ export class GeminiProvider implements ProviderAdapter {
 
     const { model, messages: rawMessages } = parsed.value;
     const { systemInstruction, contents } = toGeminiContents(rawMessages);
-    const url = `${BASE_URL}/models/${model}:streamGenerateContent?key=${env.GOOGLE_API_KEY}&alt=sse`;
 
     // ── Step 2: Call Gemini ──────────────────────────────────────────────────
+    const baseUrl = env.GOOGLE_API_URL || BASE_URL;
+    const url = `${baseUrl}/models/${model}:streamGenerateContent?key=${env.GOOGLE_API_KEY}&alt=sse`;
     const response = await fetch(url, {
       method: "POST",
       headers: {
