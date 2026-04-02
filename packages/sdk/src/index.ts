@@ -152,6 +152,7 @@ export class AICore {
         latencySensitive: options.latencySensitive ?? false,
         shadowMode: options.shadowMode ?? false,
         environment: this.config.environment ?? "development",
+        sdkVersion: "1.0.0",
         ...options.metadata,
       },
     };
@@ -233,8 +234,17 @@ export class AICore {
         callId,
         traceId,
         workspaceId: this.config.workspaceId,
+        timestampMs: Date.now(),
         feature: options.feature,
         taskType: options.taskType,
+        model,
+        provider: provider ?? "openai",
+        userId: options.userId,
+        planTier: options.planTier,
+        latencySensitive: options.latencySensitive ?? false,
+        shadowMode: options.shadowMode ?? false,
+        environment: this.config.environment ?? "development",
+        sdkVersion: "1.0.0",
         ...options.metadata,
       },
     };
@@ -321,9 +331,9 @@ function extractChatContent(data: unknown): string {
 function normalizeUsage(usage?: any): UsageMetadata | undefined {
   if (!usage) return undefined;
 
-  const inputTokens = usage.inputTokens ?? usage.prompt_tokens ?? 0;
-  const outputTokens = usage.outputTokens ?? usage.completion_tokens ?? 0;
-  let totalTokens = usage.totalTokens ?? usage.total_tokens;
+  const inputTokens = usage.inputTokens ?? usage.prompt_tokens ?? usage.prompttokens ?? 0;
+  const outputTokens = usage.outputTokens ?? usage.completion_tokens ?? usage.completiontokens ?? 0;
+  let totalTokens = usage.totalTokens ?? usage.total_tokens ?? usage.totaltokens;
 
   if (totalTokens === undefined) {
     totalTokens = inputTokens + outputTokens;
@@ -355,11 +365,15 @@ async function parseEnvelope(response: Response, logger?: Logger): Promise<Worke
   }
 }
 
+/**
+ * Refines the error from the Worker envelope.
+ */
 function toError(envelope: WorkerResponse, status: number): Error {
   if (!envelope.ok) {
     const workerError = envelope.error;
     const message = workerError?.message ?? `AICore Worker returned HTTP ${status}`;
     const err = new Error(message) as Error & { aicoreError?: AICoreError };
+    err.name = "AICoreError";
     err.aicoreError = workerError;
     return err;
   }

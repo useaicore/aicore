@@ -1,3 +1,14 @@
 name = "aicore-worker"
 main = "src/index.ts"
 compatibility_date = "2024-03-27"
+
+[vars]
+# Canonical Phase 1 ingest route
+TELEMETRY_GATEWAY_URL = "http://localhost:8080/v1/telemetry/usage"
+
+# REQUIRED SECRETS (set via 'wrangler secret put <NAME>'):
+# WORKSPACE_KEY
+# OPENAI_API_KEY
+# ANTHROPIC_API_KEY
+# GOOGLE_API_KEY
+# GROQ_API_KEY

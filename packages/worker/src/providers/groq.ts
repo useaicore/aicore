@@ -15,6 +15,8 @@ import {
   type ProviderCallUsage
 } from "./providerAdapter.js";
 import { createSseTransformer } from "../utils/streamUtils.js";
+import { calculateCost } from "../utils/pricing.js";
+import { withRetry } from "../utils/resilience.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -82,13 +84,32 @@ export class GroqProvider implements ProviderAdapter {
     try {
       const t0 = Date.now();
 
-      const response = await fetch(GROQ_CHAT_URL, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${env.GROQ_API_KEY}`,
-          "Content-Type":  "application/json",
-        },
-        body: JSON.stringify({ model, messages }),
+      if (!env.GROQ_API_KEY) {
+        return {
+          ok: false,
+          error: {
+            type: "config_error",
+            code: "GROQ_MISSING_API_KEY",
+            message: "Groq API key is missing from the environment.",
+            details: { provider: "groq", component: "worker_proxy" },
+          },
+        };
+      }
+
+      const response = await withRetry(async () => {
+        const res = await fetch(GROQ_CHAT_URL, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${env.GROQ_API_KEY}`,
+            "Content-Type":  "application/json",
+          },
+          body: JSON.stringify({ model, messages }),
+        });
+
+        if (!res.ok && (res.status === 429 || res.status >= 500)) {
+          throw res; // Throw to trigger withRetry
+        }
+        return res;
       });
 
       const latencyMs = Date.now() - t0;
@@ -112,8 +133,7 @@ export class GroqProvider implements ProviderAdapter {
       const outputTokens = data.usage?.completion_tokens ?? 0;
       const statusCode   = response.status;
 
-      // TODO: replace costCents with real per-model pricing
-      const costCents = 0;
+      const costCents = calculateCost("groq", model, inputTokens, outputTokens);
 
       const usage: ProviderCallUsage = {
         provider: "groq",
