@@ -7,10 +7,10 @@ import { ResolveResult } from "./types.js";
 export function resolveTopic(input: string): ResolveResult {
   const normalizedInput = input.toLowerCase().trim();
 
-  // 1. Direct ID match
-  const entryByDirectId = TOPICS.find((t) => t.id.toLowerCase() === normalizedInput);
-  if (entryByDirectId) {
-    return { ok: true, entry: entryByDirectId };
+  // 1. Slug match
+  const entryBySlug = TOPICS.find((t) => t.slug.toLowerCase() === normalizedInput);
+  if (entryBySlug) {
+    return { ok: true, entry: entryBySlug };
   }
 
   // 2. Alias match
@@ -19,10 +19,10 @@ export function resolveTopic(input: string): ResolveResult {
     return { ok: true, entry: entryByAlias };
   }
 
-  // 3. Fuzzy/No match - Return error with suggestions
+  // 3. Fuzzy match
   const suggestions = TOPICS
-    .filter((t) => t.id.includes(normalizedInput) || t.aliases.some((a) => a.includes(normalizedInput)))
-    .map((t) => t.id);
+    .filter((t) => t.slug.includes(normalizedInput) || t.aliases.some((a) => a.includes(normalizedInput)))
+    .map((t) => t.slug);
 
   return {
     ok: false,

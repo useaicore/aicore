@@ -1,30 +1,26 @@
 /**
  * @module sdk
  *
- * AICore SDK — public client for the AICore Worker.
+ * AICore SDK — canonical client for the AICore Worker.
  */
 
-import type {
-  ChatMessage,
-  Logger,
-  AICoreProvider,
-  AICoreTaskType,
-  AICorePlanTier,
-  AICoreEnvironment,
-  AICoreError,
-  StreamChunk,
+import {
+  type ChatMessage,
+  type AICoreLogger,
+  type AICoreError,
+  type StreamChunk,
+  type ChatRequest,
+  ChatRequestSchema,
+  createLogger,
 } from "@aicore/types";
 import { StreamNormalizer } from "./streamNormalizer.js";
 
 export type {
   ChatMessage,
-  Logger,
-  AICoreProvider,
-  AICoreTaskType,
-  AICorePlanTier,
-  AICoreEnvironment,
+  AICoreLogger,
   AICoreError,
   StreamChunk,
+  ChatRequest,
 };
 
 // ---------------------------------------------------------------------------
@@ -36,23 +32,18 @@ export interface AICoreClientConfig {
   workspaceId: string;
   workspaceKey?: string;
   defaultModel?: string;
-  defaultProvider?: AICoreProvider;
-  environment?: AICoreEnvironment;
-  logger?: Logger;
+  defaultProvider?: ChatRequest["provider"];
+  environment?: ChatRequest["metadata"]["environment"];
+  logger?: AICoreLogger;
   terminalMetrics?: boolean;
 }
 
-export interface ChatOptions {
-  model?: string;
-  provider?: AICoreProvider;
+export interface ChatOptions extends Partial<Omit<ChatRequest, "messages">> {
   feature: string;
-  taskType: AICoreTaskType;
+  taskType: string;
   userId?: string;
-  planTier: AICorePlanTier;
+  planTier?: string;
   traceId?: string;
-  shadowMode?: boolean;
-  latencySensitive?: boolean;
-  metadata?: Record<string, unknown>;
 }
 
 export interface UsageMetadata {
@@ -71,15 +62,6 @@ export interface ChatResponse {
   usage?: UsageMetadata;
 }
 
-export interface CompletionResponse {
-  text: string;
-  raw: unknown;
-  model: string;
-  provider: string;
-  usage?: UsageMetadata;
-}
-
-
 // ---------------------------------------------------------------------------
 // Worker Envelope Types (Internal)
 // ---------------------------------------------------------------------------
@@ -87,11 +69,7 @@ export interface CompletionResponse {
 interface WorkerResponseSuccess {
   ok: true;
   data: unknown;
-  usage?: UsageMetadata & {
-    prompt_tokens?: number;
-    completion_tokens?: number;
-    total_tokens?: number;
-  };
+  usage?: UsageMetadata;
 }
 
 interface WorkerResponseError {
@@ -108,6 +86,7 @@ type WorkerResponse = WorkerResponseSuccess | WorkerResponseError;
 export class AICore {
   private readonly config: AICoreClientConfig;
   private readonly endpoint: string;
+  private readonly logger: AICoreLogger;
   private metricsEmitted = false;
 
   constructor(config: AICoreClientConfig) {
@@ -119,7 +98,8 @@ export class AICore {
     }
 
     this.config = config;
-    this.endpoint = normalizeEndpoint(config.endpoint);
+    this.endpoint = config.endpoint.replace(/\/$/, "");
+    this.logger = config.logger ?? createLogger("sdk");
   }
 
   /**
@@ -127,35 +107,32 @@ export class AICore {
    */
   async chat(messages: ChatMessage[], options: ChatOptions): Promise<ChatResponse> {
     const model = options.model ?? this.config.defaultModel ?? "gpt-4o-mini";
-    const provider = options.provider ?? this.config.defaultProvider;
+    const provider = options.provider ?? this.config.defaultProvider ?? "openai";
     const callId = crypto.randomUUID();
     const traceId = options.traceId ?? crypto.randomUUID();
 
     const url = `${this.endpoint}/v1/ai/chat`;
 
-    const body = {
+    // Constructing canonical ChatRequest payload
+    const payload: ChatRequest = {
       model,
       provider,
-      taskType: options.taskType,
       messages,
+      stream: options.stream ?? false,
+      shadowMode: options.shadowMode ?? false,
       metadata: {
-        callId,
-        traceId,
         workspaceId: this.config.workspaceId,
-        timestampMs: Date.now(),
-        feature: options.feature,
-        taskType: options.taskType,
-        model,
-        provider: provider ?? "openai",
         userId: options.userId,
-        planTier: options.planTier,
-        latencySensitive: options.latencySensitive ?? false,
-        shadowMode: options.shadowMode ?? false,
-        environment: this.config.environment ?? "development",
-        sdkVersion: "1.0.0",
+        taskType: options.taskType,
         ...options.metadata,
-      },
+      } as any,
     };
+
+    // Validation (Self-Correction/10/10 Design)
+    const validation = ChatRequestSchema.safeParse(payload);
+    if (!validation.success) {
+      this.logger.warn("AICore SDK: Request validation failed locally.", validation.error.format());
+    }
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -170,29 +147,29 @@ export class AICore {
       response = await fetch(url, {
         method: "POST",
         headers,
-        body: JSON.stringify(body),
+        body: JSON.stringify(payload),
       });
     } catch (err) {
       throw new Error(`AICore request failed: could not reach ${this.endpoint}. ${(err as Error).message}`);
     }
 
-    const envelope = await parseEnvelope(response, this.config.logger);
+    const envelope = await this.parseEnvelope(response);
 
     if (!response.ok || !envelope.ok) {
-      throw toError(envelope, response.status);
+      throw this.toError(envelope, response.status);
     }
 
     const data = envelope.data;
-    const content = extractChatContent(data);
-    const usage = normalizeUsage(envelope.usage);
+    const content = this.extractChatContent(data);
+    const usage = envelope.usage;
 
-    this.emitTerminalMetrics(provider ?? "openai", model, usage);
+    this.emitTerminalMetrics(provider, model, usage);
 
     return {
       content,
       raw: data,
       model,
-      provider: provider ?? "openai",
+      provider,
       usage,
     };
   }
@@ -200,53 +177,29 @@ export class AICore {
   /**
    * Wraps chat() by sending a single user message.
    */
-  async complete(prompt: string, options: ChatOptions): Promise<CompletionResponse> {
+  async complete(prompt: string, options: ChatOptions): Promise<{ text: string; usage?: UsageMetadata }> {
     const messages: ChatMessage[] = [{ role: "user", content: prompt }];
-    const chatResponse = await this.chat(messages, options);
-
-    return {
-      text: chatResponse.content,
-      raw: chatResponse.raw,
-      model: chatResponse.model,
-      provider: chatResponse.provider,
-      usage: chatResponse.usage,
-    };
+    const res = await this.chat(messages, options);
+    return { text: res.content, usage: res.usage };
   }
 
   /**
    * Async iterable for progressive consumption.
-   * Calls the Worker's normalized streaming endpoint.
    */
   async *stream(messages: ChatMessage[], options: ChatOptions): AsyncIterable<StreamChunk> {
-    const model = options.model ?? this.config.defaultModel ?? "gpt-4o-mini";
-    const provider = options.provider ?? this.config.defaultProvider;
-    const callId = crypto.randomUUID();
-    const traceId = options.traceId ?? crypto.randomUUID();
-
     const url = `${this.endpoint}/v1/ai/chat`;
-
-    const body = {
-      model,
-      provider,
-      stream: true,
+    const payload: ChatRequest = {
+      model: options.model ?? this.config.defaultModel ?? "gpt-4o-mini",
+      provider: options.provider ?? this.config.defaultProvider ?? "openai",
       messages,
+      stream: true,
+      shadowMode: options.shadowMode ?? false,
       metadata: {
-        callId,
-        traceId,
         workspaceId: this.config.workspaceId,
-        timestampMs: Date.now(),
-        feature: options.feature,
-        taskType: options.taskType,
-        model,
-        provider: provider ?? "openai",
         userId: options.userId,
-        planTier: options.planTier,
-        latencySensitive: options.latencySensitive ?? false,
-        shadowMode: options.shadowMode ?? false,
-        environment: this.config.environment ?? "development",
-        sdkVersion: "1.0.0",
+        taskType: options.taskType,
         ...options.metadata,
-      },
+      } as any,
     };
 
     const headers: Record<string, string> = {
@@ -260,14 +213,14 @@ export class AICore {
     const response = await fetch(url, {
       method: "POST",
       headers,
-      body: JSON.stringify(body),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
       const contentType = response.headers.get("Content-Type");
       if (contentType?.includes("application/json")) {
         const envelope = (await response.json()) as WorkerResponse;
-        throw toError(envelope, response.status);
+        throw this.toError(envelope, response.status);
       }
       throw new Error(`AICore stream request failed with HTTP ${response.status}`);
     }
@@ -284,99 +237,36 @@ export class AICore {
     if (this.metricsEmitted || !this.config.terminalMetrics || !usage) {
       return;
     }
-
-    const metrics = `[AICore Metrics] provider=${provider} model=${model} latency=${usage.latencyMs}ms cost=${usage.costCents}¢ tokens=${usage.totalTokens}`;
-    
-    if (this.config.logger) {
-      this.config.logger.info(metrics);
-    } else {
-      console.info(metrics);
-    }
-
+    this.logger.info(`[AICore Metrics] provider=${provider} model=${model} latency=${usage.latencyMs}ms cost=${usage.costCents}\u00a2 tokens=${usage.totalTokens}`);
     this.metricsEmitted = true;
   }
-}
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function normalizeEndpoint(endpoint: string): string {
-  return endpoint.replace(/\/$/, "");
-}
-
-function extractChatContent(data: unknown): string {
-  if (data && typeof data === "object") {
-    const d = data as any;
-    // OpenAI & Groq
-    if (d.choices?.[0]?.message?.content !== undefined) {
-      return String(d.choices[0].message.content);
+  private async parseEnvelope(response: Response): Promise<WorkerResponse> {
+    const contentType = response.headers.get("Content-Type");
+    if (!contentType?.includes("application/json")) {
+      const text = await response.text();
+      throw new Error(`AICore: Expected JSON response, got "${text.slice(0, 100)}"`);
     }
-    // Anthropic
-    if (Array.isArray(d.content) && d.content[0]?.text !== undefined) {
-      return String(d.content[0].text);
-    }
-    // Gemini
-    if (d.candidates?.[0]?.content?.parts?.[0]?.text !== undefined) {
-      return String(d.candidates[0].content.parts[0].text);
-    }
-    // Legacy OpenAI
-    if (d.choices?.[0]?.text !== undefined) {
-      return String(d.choices[0].text);
-    }
-  }
-  return "";
-}
-
-function normalizeUsage(usage?: any): UsageMetadata | undefined {
-  if (!usage) return undefined;
-
-  const inputTokens = usage.inputTokens ?? usage.prompt_tokens ?? usage.prompttokens ?? 0;
-  const outputTokens = usage.outputTokens ?? usage.completion_tokens ?? usage.completiontokens ?? 0;
-  let totalTokens = usage.totalTokens ?? usage.total_tokens ?? usage.totaltokens;
-
-  if (totalTokens === undefined) {
-    totalTokens = inputTokens + outputTokens;
-  }
-
-  return {
-    inputTokens,
-    outputTokens,
-    totalTokens,
-    costCents: usage.costCents ?? 0,
-    latencyMs: usage.latencyMs ?? 0,
-  };
-}
-
-async function parseEnvelope(response: Response, logger?: Logger): Promise<WorkerResponse> {
-  const contentType = response.headers.get("Content-Type");
-  if (!contentType || !contentType.includes("application/json")) {
-    const text = await response.text();
-    throw new Error(`AICore request failed with HTTP ${response.status}: expected JSON response, got "${text.slice(0, 100)}"`);
-  }
-
-  try {
     return (await response.json()) as WorkerResponse;
-  } catch (err) {
-    if (logger) {
-      logger.error("AICore: failed to parse Worker response JSON", err as Error);
-    }
-    throw new Error("Invalid AICore response envelope.");
   }
-}
 
-/**
- * Refines the error from the Worker envelope.
- */
-function toError(envelope: WorkerResponse, status: number): Error {
-  if (!envelope.ok) {
-    const workerError = envelope.error;
-    const message = workerError?.message ?? `AICore Worker returned HTTP ${status}`;
-    const err = new Error(message) as Error & { aicoreError?: AICoreError };
-    err.name = "AICoreError";
-    err.aicoreError = workerError;
-    return err;
+  private extractChatContent(data: unknown): string {
+    if (!data || typeof data !== "object") return "";
+    const d = data as any;
+    if (d.choices?.[0]?.message?.content !== undefined) return String(d.choices[0].message.content);
+    if (Array.isArray(d.content) && d.content[0]?.text !== undefined) return String(d.content[0].text);
+    if (d.candidates?.[0]?.content?.parts?.[0]?.text !== undefined) return String(d.candidates[0].content.parts[0].text);
+    return "";
   }
-  
-  return new Error(`AICore request failed with HTTP ${status}`);
+
+  private toError(envelope: WorkerResponse, status: number): Error {
+    if (!envelope.ok) {
+      const workerError = envelope.error;
+      const err = new Error(workerError?.message ?? `Worker returned HTTP ${status}`) as Error & { aicoreError?: AICoreError };
+      err.name = "AICoreError";
+      err.aicoreError = workerError;
+      return err;
+    }
+    return new Error(`Request failed with HTTP ${status}`);
+  }
 }

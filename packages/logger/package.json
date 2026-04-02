@@ -14,7 +14,8 @@
   "dependencies": {
     "@aicore/types": "workspace:*",
     "bullmq": "^5.71.1",
-    "ioredis": "^5.10.1"
+    "ioredis": "^5.10.1",
+    "picocolors": "^1.1.1"
   },
   "devDependencies": {
     "@jest/globals": "^30.3.0",

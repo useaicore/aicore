@@ -5,51 +5,69 @@ import { ContextRegistryEntry } from "./types.js";
  */
 export const TOPICS: ContextRegistryEntry[] = [
   {
-    id: "openai",
+    slug: "openai",
     aliases: ["ai", "chatgpt", "gpt"],
+    kind: "provider",
+    detectionHints: ["openai"],
+    generatorHook: "openai",
     description: "OpenAI integration context (API keys, models, SDK usage).",
+    optionalQuestion: "What is your primary AI use case? (chat, embeddings, extraction)",
     implemented: true
   },
   {
-    id: "anthropic",
+    slug: "anthropic",
     aliases: ["claude"],
+    kind: "provider",
+    detectionHints: ["@anthropic-ai/sdk"],
+    generatorHook: "anthropic",
     description: "Anthropic integration context (Claude models, SDK).",
     implemented: true
   },
   {
-    id: "gemini",
+    slug: "gemini",
     aliases: ["google-ai"],
+    kind: "provider",
+    detectionHints: ["@google/generative-ai"],
+    generatorHook: "gemini",
     description: "Google Gemini integration context.",
     implemented: true
   },
   {
-    id: "stripe",
+    slug: "stripe",
     aliases: ["billing", "payments"],
+    kind: "billing",
+    detectionHints: ["stripe"],
+    optionalQuestion: "What are you adding first? (Subscriptions, Payments, Connect)",
+    generatorHook: "stripe",
     description: "Stripe billing and subscription context.",
     implemented: true
   },
   {
-    id: "supabase",
+    slug: "supabase",
     aliases: ["database", "db", "auth"],
+    kind: "infra",
+    detectionHints: ["@supabase/supabase-js"],
+    generatorHook: "supabase",
     description: "Supabase infrastructure context (Postgres, Auth).",
     implemented: true
   },
   {
-    id: "cloudflare-worker",
+    slug: "cloudflare-worker",
     aliases: ["worker", "edge", "wrangler"],
+    kind: "deployment",
+    detectionHints: ["wrangler.toml", "wrangler"],
+    generatorHook: "cloudflare-worker",
     description: "Cloudflare Worker deployment and runtime context.",
+    optionalQuestion: "Are you deploying an API proxy, scheduled worker, or webhook handler?",
     implemented: true
   },
   {
-    id: "redis-bullmq",
+    slug: "redis-bullmq",
     aliases: ["queues", "jobs", "bullmq"],
+    kind: "queue",
+    detectionHints: ["bullmq", "ioredis"],
+    generatorHook: "redis-bullmq",
     description: "Redis and BullMQ background processing context.",
     implemented: true
-  },
-  {
-    id: "monorepo-turbo",
-    aliases: ["monorepo", "turbo"],
-    description: "Monorepo and Turbo orchestration context.",
-    implemented: false
   }
 ];

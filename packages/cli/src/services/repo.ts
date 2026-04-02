@@ -1,56 +1,47 @@
 import * as path from "node:path";
+import * as fs from "node:fs/promises";
+import { type ProjectProfile, ProjectProfileSchema } from "@aicore/types";
 import { exists, readJson, getSubDirs } from "../utils/fs-utils.js";
+import { getContextFilePath } from "./paths.js";
+
+const CACHE_FILE_NAME = "profile.json";
 
 /**
- * Internal project profile built by the repo detection service.
+ * Loads the project profile from the local cache if it exists.
  */
-export type ProjectProfile = {
-  projectName?: string;
-  packageManager: "pnpm" | "npm" | "yarn" | "bun" | "unknown";
-  runtime: "node" | "edge" | "browser" | "mixed" | "unknown";
-  appKind:
-    | "next-app"
-    | "vite-app"
-    | "express-api"
-    | "fastify-api"
-    | "worker"
-    | "library"
-    | "monorepo-root"
-    | "unknown";
-  frameworks: string[];
-  aiProviders: string[];
-  aiFrameworks: string[];
-  infra: string[];
-  billing: string[];
-  auth: string[];
-  data: string[];
-  queues: string[];
-  deployment: string[];
-  observability: string[];
-  signals: {
-    hasPackageJson: boolean;
-    hasTsconfig: boolean;
-    hasWranglerToml: boolean;
-    hasTurboJson: boolean;
-    hasPnpmWorkspace: boolean;
-    hasEnvExample: boolean;
-    hasAppsDir: boolean;
-    hasPackagesDir: boolean;
-  };
-  evidence: Record<string, string>;
-  notes: string[];
-  packages?: Array<{
-    name: string;
-    path: string;
-    kind: string;
-  }>;
-};
+export async function loadProfileCache(cwd: string): Promise<ProjectProfile | null> {
+  const cachePath = getContextFilePath(cwd, CACHE_FILE_NAME);
+  const data = await readJson<any>(cachePath);
+  if (!data) return null;
+
+  const result = ProjectProfileSchema.safeParse(data);
+  if (result.success) {
+    return result.data;
+  }
+  return null;
+}
+
+/**
+ * Saves the project profile to the local cache.
+ */
+export async function saveProfileCache(cwd: string, profile: ProjectProfile): Promise<void> {
+  const cachePath = getContextFilePath(cwd, CACHE_FILE_NAME);
+  const dir = path.dirname(cachePath);
+  if (!(await exists(dir))) {
+    await fs.mkdir(dir, { recursive: true });
+  }
+  await fs.writeFile(cachePath, JSON.stringify(profile, null, 2), "utf-8");
+}
 
 /**
  * Builds a project profile by inspecting the workspace.
  * (Moved from detect.ts for scalable architecture).
  */
 export async function buildProjectProfile(cwd: string): Promise<ProjectProfile> {
+  // 0. Check Cache First (10/10 Performance)
+  const cached = await loadProfileCache(cwd);
+  if (cached) return cached;
+
   const profile: ProjectProfile = {
     projectName: path.basename(cwd),
     packageManager: "unknown",
