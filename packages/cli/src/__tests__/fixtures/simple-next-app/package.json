@@ -1,0 +1,8 @@
+{
+  "name": "next-app",
+  "dependencies": {
+    "next": "latest",
+    "openai": "latest",
+    "stripe": "latest"
+  }
+}

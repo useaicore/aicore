@@ -1,0 +1,7 @@
+{
+  "name": "worker-monorepo",
+  "private": true,
+  "devDependencies": {
+    "turbo": "latest"
+  }
+}
