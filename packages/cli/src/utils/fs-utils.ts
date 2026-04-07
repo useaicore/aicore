@@ -1,5 +1,5 @@
 import { promises as fs } from "node:fs";
-import * as path from "node:path";
+
 
 /**
  * Checks if a file or directory exists.
@@ -46,4 +46,22 @@ export async function getSubDirs(p: string): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+/**
+ * Safely writes a file, checking for existence and the 'force' option.
+ */
+export async function safeWrite(
+  p: string,
+  content: string,
+  options: { force?: boolean } = {}
+): Promise<"created" | "overwritten" | "skipped"> {
+  const fileExists = await exists(p);
+
+  if (fileExists && !options.force) {
+    return "skipped";
+  }
+
+  await fs.writeFile(p, content, "utf-8");
+  return fileExists ? "overwritten" : "created";
 }

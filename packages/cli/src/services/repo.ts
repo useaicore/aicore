@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import * as fs from "node:fs/promises";
 import { type ProjectProfile, ProjectProfileSchema } from "@aicore/types";
+export { type ProjectProfile, ProjectProfileSchema };
 import { exists, readJson, getSubDirs } from "../utils/fs-utils.js";
 import { getContextFilePath } from "./paths.js";
 

@@ -96,11 +96,11 @@ describe("Worker Fetch Handler", () => {
       usage: { input_tokens: 15, output_tokens: 25 }
     };
 
-    (globalThis.fetch as jest.Mock).mockResolvedValue({
+    (globalThis.fetch as any).mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => mockAnthropicResponse,
-    } as any);
+    });
 
     const request = new Request("https://aicore.example.com/v1/ai/chat", {
       method: "POST",
@@ -193,7 +193,7 @@ describe("Worker Fetch Handler", () => {
       );
       
       expect(telemetryCall).toBeDefined();
-      const telemetryBody = JSON.parse(telemetryCall![1].body);
+      const telemetryBody = JSON.parse((telemetryCall![1] as any).body);
       
       expect(telemetryBody.usage).toBeDefined();
       expect(telemetryBody.workspaceId).toBe("ws_99");

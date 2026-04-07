@@ -10,7 +10,8 @@
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "dependencies": {
-    "@aicore/types": "workspace:*"
+    "@aicore/types": "workspace:*",
+    "@aicore/logger": "workspace:*"
   },
   "devDependencies": {
     "wrangler": "latest",

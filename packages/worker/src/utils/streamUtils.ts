@@ -19,13 +19,15 @@ function encodeSseEvent(chunk: StreamChunk): string {
  * Content-Type, delivering a stream of normalized StreamChunks as SSE.
  */
 export function createSseResponse(stream: ReadableStream<StreamChunk>): Response {
-  const { readable, writable } = new TransformStream<StreamChunk, string>({
+  const sseTransform = new TransformStream<StreamChunk, string>({
     transform(chunk, controller) {
       controller.enqueue(encodeSseEvent(chunk));
     },
   });
 
-  const body = readable.pipeThrough(new TextEncoderStream());
+  const body = stream
+    .pipeThrough(sseTransform)
+    .pipeThrough(new TextEncoderStream());
 
   return new Response(body, {
     headers: {

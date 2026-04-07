@@ -111,3 +111,4 @@ class NodeLogger implements AICoreLogger {
 
 // Re-export specific loggers if needed
 export { createFileUsageLogger } from "./usageLogger.js";
+export { enqueueUsageLog } from "./queueProducer.js";

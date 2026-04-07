@@ -2,7 +2,7 @@
  * @file streaming.test.ts
  */
 
-import { jest, describe, it, expect, beforeEach } from "@jest/globals";
+import { describe, it, expect, beforeEach } from "@jest/globals";
 import { OpenAIProvider } from "./openai.js";
 import { AnthropicProvider } from "./anthropic.js";
 

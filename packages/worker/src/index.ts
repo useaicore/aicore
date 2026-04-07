@@ -4,8 +4,8 @@
  * AICore Cloudflare Worker — Modern Middleware Entrypoint.
  */
 
-import { createInternalError, ChatRequest } from "@aicore/types";
-import { type ProviderChatParams, type Env } from "./providers/providerAdapter.js";
+import { ChatRequest } from "@aicore/types";
+import { type ProviderChatParams } from "./providers/providerAdapter.js";
 import { registry } from "./providers/registry.js";
 import { pickProvider } from "./routing/providerRouting.js";
 import { createSseResponse } from "./utils/streamUtils.js";

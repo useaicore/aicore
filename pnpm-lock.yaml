@@ -169,6 +169,9 @@ importers:
 
   packages/worker:
     dependencies:
+      '@aicore/logger':
+        specifier: workspace:*
+        version: link:../logger
       '@aicore/types':
         specifier: workspace:*
         version: link:../types
