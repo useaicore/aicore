@@ -1,6 +1,8 @@
 import { Command } from "commander";
 import { initAction } from "./commands/init.js";
 import { registerContextCommands } from "./commands/context/index.js";
+import { aicoreInitCommand } from "./commands/aicore-init.js";
+import { aicoreWhoamiCommand } from "./commands/aicore-whoami.js";
 
 const program = new Command();
 
@@ -9,7 +11,7 @@ program
   .description("AICore Unified Infrastructure CLI")
   .version("0.1.0");
 
-// 1. Initial workspace setup
+// 1. Initial workspace setup (existing)
 program
   .command("init")
   .description("Initialize AICore context for this workspace")
@@ -20,7 +22,11 @@ program
     await initAction(options);
   });
 
-// 2. Context management group
+// 2. Context management group (existing)
 registerContextCommands(program);
 
-program.parse();
+// 3. AICore platform setup
+program.addCommand(aicoreInitCommand());
+program.addCommand(aicoreWhoamiCommand());
+
+await program.parseAsync(process.argv);

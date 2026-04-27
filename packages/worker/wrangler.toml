@@ -15,3 +15,4 @@ SUPABASE_URL = "https://syblaghmxdwhicnchpqb.supabase.co"
 # GOOGLE_API_KEY
 # GROQ_API_KEY
 # SUPABASE_SERVICE_ROLE_KEY
+# AICORE_ADMIN_SECRET

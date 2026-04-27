@@ -30,8 +30,7 @@ export const withAuth: Middleware = async (ctx, next) => {
     const encoder = new TextEncoder();
     const data = encoder.encode(aicoreKey);
     const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const keyHash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+    const keyHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
 
     // 2. Query Supabase
     const supabaseUrl = (env as any).SUPABASE_URL;
@@ -42,7 +41,7 @@ export const withAuth: Middleware = async (ctx, next) => {
       return sendUnauthorized();
     }
 
-    const queryUrl = `${supabaseUrl}/rest/v1/workspace_api_keys?key_hash=eq.${keyHash}&select=id,workspace_id,revoked_at,expires_at`;
+    const queryUrl = `${supabaseUrl}/rest/v1/workspace_api_keys?key_hash=eq.${keyHash}&select=id,workspace_id,revoked_at,expires_at,key_prefix,environment,workspaces(plan_tier)`;
     
     const dbResponse = await fetch(queryUrl, {
       method: "GET",
@@ -78,8 +77,11 @@ export const withAuth: Middleware = async (ctx, next) => {
       }
     }
 
-    // 4. Attach workspace_id to context
+    // 4. Attach context data for downstream handlers
     ctx.state.workspaceId = keyRow.workspace_id;
+    ctx.state.keyPrefix = keyRow.key_prefix;
+    ctx.state.environment = keyRow.environment;
+    ctx.state.planTier = keyRow.workspaces?.plan_tier ?? "free";
 
     // 5. Fire-and-forget last_used_at update
     const { ctx: executionCtx } = ctx;

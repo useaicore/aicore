@@ -2,24 +2,32 @@
   "name": "@aicore/cli",
   "version": "0.1.0",
   "type": "module",
+  "files": ["dist", "bin"],
   "bin": {
     "aicore": "./bin/aicore.js"
   },
   "scripts": {
     "build": "tsc",
+    "prepare": "npm run build",
     "dev": "tsc -w",
     "type-check": "tsc --noEmit",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "dependencies": {
     "@aicore/types": "workspace:*",
-    "commander": "latest"
+    "@clack/prompts": "^0.9.0",
+    "commander": "latest",
+    "picocolors": "^1.1.1"
+  },
+  "optionalDependencies": {
+    "keytar": "^7.9.0"
   },
   "devDependencies": {
     "@jest/globals": "^30.3.0",
     "@types/jest": "^29.5.12",
-    "@types/node": "^25.5.0",
+    "@types/node": "^20.0.0",
     "jest": "^29.7.0",
-    "ts-jest": "^29.1.2"
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.0.0"
   }
 }

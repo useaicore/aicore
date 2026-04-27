@@ -17,6 +17,8 @@ import { withLogging } from "./middleware/logging.js";
 import { withAuth } from "./middleware/auth.js";
 import { withValidation } from "./middleware/validation.js";
 import { withCircuitBreaker } from "./middleware/circuitBreaker.js";
+import { withAdminAuth } from "./middleware/adminAuth.js";
+import { healthHandler, createKeyHandler, revokeKeyHandler } from "./handlers/adminHandlers.js";
 
 // ---------------------------------------------------------------------------
 // Business Logic: Proxy Execution
@@ -85,19 +87,51 @@ const executeProxy: Middleware = async (ctx) => {
 };
 
 // ---------------------------------------------------------------------------
-// Main Worker Handler (10/10 Architecture)
+// Admin Handlers wrapped as Middleware
+// ---------------------------------------------------------------------------
+
+const healthMiddleware: Middleware = async (ctx) => healthHandler(ctx);
+const createKeyMiddleware: Middleware = async (ctx) => createKeyHandler(ctx);
+const revokeKeyMiddleware: Middleware = async (ctx) => revokeKeyHandler(ctx);
+
+// Composed chains
+const handleHealth = compose(withLogging, withAuth, healthMiddleware);
+const handleCreateKey = compose(withLogging, withAdminAuth, createKeyMiddleware);
+const handleRevokeKey = compose(withLogging, withAdminAuth, revokeKeyMiddleware);
+const handleProxy = compose(withLogging, withAuth, withValidation, withCircuitBreaker, executeProxy);
+
+// ---------------------------------------------------------------------------
+// Main Worker Handler
 // ---------------------------------------------------------------------------
 
 export default {
-  /**
-   * Finalized Middleware Chain:
-   * Logging -> Auth -> Validation -> CircuitBreaker -> Proxy Logic
-   */
-  fetch: compose(
-    withLogging,
-    withAuth,
-    withValidation,
-    withCircuitBreaker,
-    executeProxy
-  )
+  async fetch(request: Request, env: any, ctx: ExecutionContext): Promise<Response> {
+    const url = new URL(request.url);
+    const { pathname } = url;
+    const method = request.method;
+
+    // Admin routes — matched BEFORE the wildcard proxy
+    if (method === "GET" && pathname === "/v1/health") {
+      return handleHealth(request, env, ctx);
+    }
+
+    if (method === "POST" && pathname === "/v1/keys/create") {
+      return handleCreateKey(request, env, ctx);
+    }
+
+    if (method === "POST" && pathname === "/v1/keys/revoke") {
+      return handleRevokeKey(request, env, ctx);
+    }
+
+    // Wildcard proxy — matches POST /v1/*
+    if (method === "POST" && pathname.startsWith("/v1/")) {
+      return handleProxy(request, env, ctx);
+    }
+
+    // Catch-all 404
+    return new Response(
+      JSON.stringify({ error: "not_found", message: "Route not found" }),
+      { status: 404, headers: { "Content-Type": "application/json" } }
+    );
+  }
 };
