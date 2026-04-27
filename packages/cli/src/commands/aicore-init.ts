@@ -74,10 +74,10 @@ export function aicoreInitCommand(): Command {
       const s = spinner();
       s.start("Verifying key against endpoint...");
 
-      let res: Response;
+      let res: Response | undefined;
       try {
         res = await fetch(`${normalizedEndpoint}/v1/health`, {
-          headers: { Authorization: `Bearer ${keyString}` },
+          headers: { "x-aicore-key": keyString },
         });
       } catch {
         s.stop("Network error");
@@ -85,9 +85,9 @@ export function aicoreInitCommand(): Command {
         process.exit(1);
       }
 
-      if (!res.ok) {
+      if (!res || !res.ok) {
         s.stop("Verification failed");
-        console.error(pc.red(`Health check failed: ${res.status}. Check your API key and endpoint.`));
+        console.error(pc.red(`Health check failed: ${res?.status ?? "network error"}. Check your API key and endpoint.`));
         process.exit(1);
       }
 
@@ -118,7 +118,7 @@ export function aicoreInitCommand(): Command {
       // --- Update .gitignore ---
       try {
         const existing = await readFile(".gitignore", "utf8");
-        if (!existing.split("\n").some(l => l.trim() === ".aicore/")) {
+        if (!existing.split("\n").some((l: string) => l.trim() === ".aicore/")) {
           await appendFile(".gitignore", "\n.aicore/\n");
         }
       } catch (err) {

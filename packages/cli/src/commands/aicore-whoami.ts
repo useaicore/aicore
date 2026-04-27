@@ -18,13 +18,18 @@ export function aicoreWhoamiCommand(): Command {
     .action(async () => {
       // --- Read config.json ---
       const configPath = path.join(process.cwd(), ".aicore", "config.json");
-      let config: AicoreConfig;
+      let config: AicoreConfig | undefined;
 
       try {
         const raw = await readFile(configPath, "utf8");
         config = JSON.parse(raw) as AicoreConfig;
       } catch {
         console.error(pc.red("No AICore config found. Run aicore aicore-init to get started."));
+        process.exit(1);
+      }
+
+      if (!config) {
+        // TypeScript control-flow narrowing guard (unreachable at runtime)
         process.exit(1);
       }
 
@@ -37,18 +42,18 @@ export function aicoreWhoamiCommand(): Command {
       }
 
       // --- Call health endpoint (two-layer error handling) ---
-      let res: Response;
+      let res: Response | undefined;
       try {
         res = await fetch(`${config.endpoint}/v1/health`, {
-          headers: { Authorization: `Bearer ${key}` },
+          headers: { "x-aicore-key": key },
         });
       } catch {
         console.error(pc.red("Endpoint unreachable. Check your config or re-run aicore aicore-init."));
         process.exit(1);
       }
 
-      if (!res.ok) {
-        console.error(pc.red(`Health check failed: ${res.status}. Try running aicore aicore-init again.`));
+      if (!res || !res.ok) {
+        console.error(pc.red(`Health check failed: ${res?.status ?? "network error"}. Try running aicore aicore-init again.`));
         process.exit(1);
       }
 
