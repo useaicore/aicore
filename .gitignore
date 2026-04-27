@@ -1,6 +1,12 @@
+.env
+.env.*
+.dev.vars
+.wrangler
 node_modules
 dist
+build
 .aicorelogs.jsonl
 .turbo
 .next
-.env
+*.log
+.DS_Store
