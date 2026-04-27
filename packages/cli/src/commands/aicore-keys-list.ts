@@ -55,7 +55,19 @@ export function aicoreKeysListCommand(): Command {
             process.exit(1);
           }
 
-          const { keys } = await res.json() as { keys: KeyRow[] };
+          let keys: KeyRow[];
+          try {
+            const data = await res.json() as { keys: KeyRow[] };
+            keys = data.keys;
+          } catch {
+            console.error(pc.red("Invalid response from endpoint. Check your config."));
+            process.exit(1);
+          }
+
+          if (!Array.isArray(keys)) {
+            console.error(pc.red("Invalid keys format received from server."));
+            process.exit(1);
+          }
 
           if (!keys.length) {
             console.log(pc.gray("\n  No active keys found.\n"));

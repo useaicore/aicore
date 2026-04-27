@@ -91,12 +91,14 @@ export function aicoreInitCommand(): Command {
         process.exit(1);
       }
 
-      const health = await res.json() as {
-        workspace_id: string;
-        key_prefix: string;
-        environment: string;
-        plan_tier: string;
-      };
+      let health: { workspace_id: string; key_prefix: string; environment: string; plan_tier: string };
+      try {
+        health = await res.json() as typeof health;
+      } catch {
+        s.stop("Verification failed");
+        console.error(pc.red("Endpoint returned invalid JSON. Check the URL and try again."));
+        process.exit(1);
+      }
 
       s.stop(pc.green("Key verified ✓"));
 
