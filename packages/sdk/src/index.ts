@@ -31,7 +31,7 @@ export interface AICoreClientConfig {
   apiKey: string;
   defaultModel?: string;
   defaultProvider?: ChatRequest["provider"];
-  environment?: ChatRequest["metadata"]["environment"];
+  environment?: "production" | "development" | "staging" | string;
   logger?: AICoreLogger;
   terminalMetrics?: boolean;
 }
