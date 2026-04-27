@@ -28,12 +28,13 @@ export function compose(...middlewares: Middleware[]): (
   ctx: ExecutionContext
 ) => Promise<Response> {
   return async (request, env, ctx) => {
+    const timestampMs = Date.now();
     const context: MiddlewareContext = {
       request,
       env,
       ctx,
       state: {},
-      startTime: Date.now(),
+      startTime: timestampMs,
     };
 
     let index = -1;

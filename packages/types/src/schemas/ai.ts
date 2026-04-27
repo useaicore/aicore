@@ -18,10 +18,14 @@ export const ChatRequestSchema = z.object({
     workspaceId: z.string().optional(),
     userId: z.string().optional(),
     taskType: z.string().optional(),
+    feature: z.string().optional(),
+    planTier: z.string().optional(),
+    environment: z.string().optional(),
+    traceId: z.string().optional(),
     agentId: z.string().optional(),
     workflowRunId: z.string().optional(),
     pipelineStep: z.number().optional(),
-  }).optional(),
+  }).passthrough().optional(),
 });
 
 export type ChatRequest = z.infer<typeof ChatRequestSchema>;

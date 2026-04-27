@@ -6,13 +6,12 @@
 
 import {
   type ChatMessage,
-  type AICoreLogger,
   type AICoreError,
   type StreamChunk,
   type ChatRequest,
   ChatRequestSchema,
-  createLogger,
 } from "@aicore/types";
+import { type AICoreLogger, createLogger } from "@aicore/logger";
 import { StreamNormalizer } from "./streamNormalizer.js";
 
 export type {
@@ -29,8 +28,7 @@ export type {
 
 export interface AICoreClientConfig {
   endpoint: string;
-  workspaceId: string;
-  workspaceKey?: string;
+  apiKey: string;
   defaultModel?: string;
   defaultProvider?: ChatRequest["provider"];
   environment?: ChatRequest["metadata"]["environment"];
@@ -60,6 +58,8 @@ export interface ChatResponse {
   model: string;
   provider: string;
   usage?: UsageMetadata;
+  callId?: string;
+  traceId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -70,6 +70,8 @@ interface WorkerResponseSuccess {
   ok: true;
   data: unknown;
   usage?: UsageMetadata;
+  call_id?: string;
+  trace_id?: string;
 }
 
 interface WorkerResponseError {
@@ -93,8 +95,8 @@ export class AICore {
     if (!config.endpoint) {
       throw new Error("AICore: endpoint is required in AICoreClientConfig.");
     }
-    if (!config.workspaceId) {
-      throw new Error("AICore: workspaceId is required in AICoreClientConfig.");
+    if (!config.apiKey) {
+      throw new Error("AICore: apiKey is required in AICoreClientConfig.");
     }
 
     this.config = config;
@@ -108,8 +110,6 @@ export class AICore {
   async chat(messages: ChatMessage[], options: ChatOptions): Promise<ChatResponse> {
     const model = options.model ?? this.config.defaultModel ?? "gpt-4o-mini";
     const provider = options.provider ?? this.config.defaultProvider ?? "openai";
-    const callId = crypto.randomUUID();
-    const traceId = options.traceId ?? crypto.randomUUID();
 
     const url = `${this.endpoint}/v1/ai/chat`;
 
@@ -121,9 +121,12 @@ export class AICore {
       stream: options.stream ?? false,
       shadowMode: options.shadowMode ?? false,
       metadata: {
-        workspaceId: this.config.workspaceId,
         userId: options.userId,
         taskType: options.taskType,
+        feature: options.feature,
+        planTier: options.planTier,
+        traceId: options.traceId,
+        environment: this.config.environment,
         ...options.metadata,
       } as any,
     };
@@ -136,11 +139,8 @@ export class AICore {
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
+      "x-aicore-key": this.config.apiKey,
     };
-
-    if (this.config.workspaceKey) {
-      headers["x-workspace-key"] = this.config.workspaceKey;
-    }
 
     let response: Response;
     try {
@@ -171,6 +171,8 @@ export class AICore {
       model,
       provider,
       usage,
+      callId: envelope.call_id,
+      traceId: envelope.trace_id,
     };
   }
 
@@ -195,20 +197,20 @@ export class AICore {
       stream: true,
       shadowMode: options.shadowMode ?? false,
       metadata: {
-        workspaceId: this.config.workspaceId,
         userId: options.userId,
         taskType: options.taskType,
+        feature: options.feature,
+        planTier: options.planTier,
+        traceId: options.traceId,
+        environment: this.config.environment,
         ...options.metadata,
       } as any,
     };
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
+      "x-aicore-key": this.config.apiKey,
     };
-
-    if (this.config.workspaceKey) {
-      headers["x-workspace-key"] = this.config.workspaceKey;
-    }
 
     const response = await fetch(url, {
       method: "POST",

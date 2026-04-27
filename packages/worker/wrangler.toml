@@ -1,10 +1,12 @@
 name = "aicore-worker"
 main = "src/index.ts"
-compatibility_date = "2024-03-27"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
 
 [vars]
-# Canonical Phase 1 ingest route
+# Canonical Phase 1 ingest route (Legacy)
 TELEMETRY_GATEWAY_URL = "http://localhost:3001/v1/telemetry/usage"
+SUPABASE_URL = "https://syblaghmxdwhicnchpqb.supabase.co"
 
 # REQUIRED SECRETS (set via 'wrangler secret put <NAME>'):
 # WORKSPACE_KEY
@@ -12,3 +14,4 @@ TELEMETRY_GATEWAY_URL = "http://localhost:3001/v1/telemetry/usage"
 # ANTHROPIC_API_KEY
 # GOOGLE_API_KEY
 # GROQ_API_KEY
+# SUPABASE_SERVICE_ROLE_KEY

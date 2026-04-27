@@ -30,6 +30,9 @@ const executeProxy: Middleware = async (ctx) => {
   const { state, env, ctx: executionCtx, startTime } = ctx;
   const payload = state.payload as ChatRequest;
 
+  state.callId = `call_${crypto.randomUUID()}`;
+  state.traceId = payload.metadata?.traceId ?? `trace_${crypto.randomUUID()}`;
+
   // 1. Resolve Provider & Adapter
   const provider = pickProvider(payload);
   const adapter = registry.getAdapter(provider);
@@ -43,7 +46,7 @@ const executeProxy: Middleware = async (ctx) => {
         const shadowAdapter = registry.getAdapter(shadowProvider);
         const shadowResult = await shadowAdapter.chat({ payload, env });
         if (shadowResult.ok) {
-          await emitTelemetry(shadowResult.usage, env, payload, true);
+          await emitTelemetry(shadowResult.usage, ctx, true);
         }
       } catch (err) {
         console.warn("[AICore Worker] Shadow call failed:", err);
@@ -54,21 +57,28 @@ const executeProxy: Middleware = async (ctx) => {
   // 3. Execution Path (Streaming vs Unary)
   if (payload.stream === true) {
     const stream = await adapter.stream(params);
-    const telemetryStream = withTelemetry(stream, env, executionCtx, payload, startTime);
+    const telemetryStream = withTelemetry(stream, ctx);
     return createSseResponse(telemetryStream);
   }
 
   const result = await adapter.chat(params);
+  
+  const responsePayload = {
+    ...result,
+    call_id: state.callId,
+    trace_id: state.traceId
+  };
+
   if (result.ok) {
-    executionCtx.waitUntil(emitTelemetry(result.usage, env, payload));
-    return new Response(JSON.stringify(result), {
+    executionCtx.waitUntil(emitTelemetry(result.usage, ctx));
+    return new Response(JSON.stringify(responsePayload), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   }
 
   const status = result.error.details?.httpStatusCode ?? 500;
-  return new Response(JSON.stringify(result), {
+  return new Response(JSON.stringify(responsePayload), {
     status,
     headers: { "Content-Type": "application/json" },
   });
