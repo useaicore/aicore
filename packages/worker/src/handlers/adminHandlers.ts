@@ -147,3 +147,33 @@ export const revokeKeyHandler = async (ctx: MiddlewareContext) => {
 
   return json({ status: "revoked", key_id }, 200);
 };
+
+export const listKeysHandler = async (ctx: MiddlewareContext) => {
+  const { request, env } = ctx;
+  const supabaseUrl = (env as any).SUPABASE_URL;
+
+  const url = new URL(request.url);
+  const workspace_id = url.searchParams.get("workspace_id");
+
+  if (!workspace_id) {
+    return json({ error: "missing_fields", message: "workspace_id query param is required" }, 400);
+  }
+
+  const supabaseHeaders = getSupabaseHeaders(env);
+
+  const queryUrl = `${supabaseUrl}/rest/v1/workspace_api_keys`
+    + `?workspace_id=eq.${workspace_id}`
+    + `&revoked_at=is.null`
+    + `&select=id,key_prefix,name,environment,usage_count,last_used_at,created_at`
+    + `&order=created_at.desc`;
+
+  const res = await fetch(queryUrl, { headers: supabaseHeaders });
+
+  if (!res.ok) {
+    console.error("[AICore Worker] listKeys Supabase error", await res.text());
+    return json({ error: "internal_server_error", message: "Failed to list keys" }, 500);
+  }
+
+  const keys = await res.json() as any[];
+  return json({ keys });
+};

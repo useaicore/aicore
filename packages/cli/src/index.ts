@@ -3,6 +3,7 @@ import { initAction } from "./commands/init.js";
 import { registerContextCommands } from "./commands/context/index.js";
 import { aicoreInitCommand } from "./commands/aicore-init.js";
 import { aicoreWhoamiCommand } from "./commands/aicore-whoami.js";
+import { aicoreKeysListCommand } from "./commands/aicore-keys-list.js";
 
 const program = new Command();
 
@@ -28,5 +29,6 @@ registerContextCommands(program);
 // 3. AICore platform setup
 program.addCommand(aicoreInitCommand());
 program.addCommand(aicoreWhoamiCommand());
+program.addCommand(aicoreKeysListCommand());
 
 await program.parseAsync(process.argv);

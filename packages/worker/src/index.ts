@@ -18,7 +18,7 @@ import { withAuth } from "./middleware/auth.js";
 import { withValidation } from "./middleware/validation.js";
 import { withCircuitBreaker } from "./middleware/circuitBreaker.js";
 import { withAdminAuth } from "./middleware/adminAuth.js";
-import { healthHandler, createKeyHandler, revokeKeyHandler } from "./handlers/adminHandlers.js";
+import { healthHandler, createKeyHandler, revokeKeyHandler, listKeysHandler } from "./handlers/adminHandlers.js";
 
 // ---------------------------------------------------------------------------
 // Business Logic: Proxy Execution
@@ -29,7 +29,7 @@ import { healthHandler, createKeyHandler, revokeKeyHandler } from "./handlers/ad
  * Picks the provider, handles shadow mode, and executes the AI call.
  */
 const executeProxy: Middleware = async (ctx) => {
-  const { state, env, ctx: executionCtx, startTime } = ctx;
+  const { state, env, ctx: executionCtx } = ctx;
   const payload = state.payload as ChatRequest;
 
   state.callId = `call_${crypto.randomUUID()}`;
@@ -64,11 +64,11 @@ const executeProxy: Middleware = async (ctx) => {
   }
 
   const result = await adapter.chat(params);
-  
+
   const responsePayload = {
     ...result,
     call_id: state.callId,
-    trace_id: state.traceId
+    trace_id: state.traceId,
   };
 
   if (result.ok) {
@@ -93,12 +93,14 @@ const executeProxy: Middleware = async (ctx) => {
 const healthMiddleware: Middleware = async (ctx) => healthHandler(ctx);
 const createKeyMiddleware: Middleware = async (ctx) => createKeyHandler(ctx);
 const revokeKeyMiddleware: Middleware = async (ctx) => revokeKeyHandler(ctx);
+const listKeysMiddleware: Middleware = async (ctx) => listKeysHandler(ctx);
 
 // Composed chains
-const handleHealth = compose(withLogging, withAuth, healthMiddleware);
+const handleHealth    = compose(withLogging, withAuth,      healthMiddleware);
 const handleCreateKey = compose(withLogging, withAdminAuth, createKeyMiddleware);
 const handleRevokeKey = compose(withLogging, withAdminAuth, revokeKeyMiddleware);
-const handleProxy = compose(withLogging, withAuth, withValidation, withCircuitBreaker, executeProxy);
+const handleListKeys  = compose(withLogging, withAdminAuth, listKeysMiddleware);
+const handleProxy     = compose(withLogging, withAuth, withValidation, withCircuitBreaker, executeProxy);
 
 // ---------------------------------------------------------------------------
 // Main Worker Handler
@@ -123,6 +125,10 @@ export default {
       return handleRevokeKey(request, env, ctx);
     }
 
+    if (method === "GET" && pathname === "/v1/keys") {
+      return handleListKeys(request, env, ctx);
+    }
+
     // Wildcard proxy — matches POST /v1/*
     if (method === "POST" && pathname.startsWith("/v1/")) {
       return handleProxy(request, env, ctx);
@@ -133,5 +139,5 @@ export default {
       JSON.stringify({ error: "not_found", message: "Route not found" }),
       { status: 404, headers: { "Content-Type": "application/json" } }
     );
-  }
+  },
 };

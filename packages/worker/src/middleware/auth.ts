@@ -83,24 +83,24 @@ export const withAuth: Middleware = async (ctx, next) => {
     ctx.state.environment = keyRow.environment;
     ctx.state.planTier = keyRow.workspaces?.plan_tier ?? "free";
 
-    // 5. Fire-and-forget last_used_at update
+    // 5. Fire-and-forget: atomic usage_count increment + last_used_at via RPC
+    //    Uses waitUntil() so the Worker response is not delayed.
+    //    RPC does: UPDATE ... SET usage_count = usage_count + 1, last_used_at = NOW()
+    //    This avoids the read-then-write race condition of PATCH with keyRow.usage_count + 1.
     const { ctx: executionCtx } = ctx;
-    executionCtx.waitUntil((async () => {
-      try {
-        await fetch(`${supabaseUrl}/rest/v1/workspace_api_keys?id=eq.${keyRow.id}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${serviceRoleKey}`,
-            "apikey": serviceRoleKey,
-            "Prefer": "return=minimal"
-          },
-          body: JSON.stringify({ last_used_at: new Date().toISOString() })
-        });
-      } catch (err) {
-        console.warn("[AICore Worker] Failed to update last_used_at:", err);
-      }
-    })());
+    executionCtx.waitUntil(
+      fetch(`${supabaseUrl}/rest/v1/rpc/increment_key_usage`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${serviceRoleKey}`,
+          "apikey": serviceRoleKey,
+        },
+        body: JSON.stringify({ key_id: keyRow.id }),
+      }).catch(err => {
+        console.warn("[AICore Worker] Failed to increment key usage:", err);
+      })
+    );
 
   } catch (error) {
     console.error("[AICore Worker] Auth exception:", error);
