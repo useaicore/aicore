@@ -1,6 +1,6 @@
 import { type StreamChunk } from "@aicore/types";
 import { type ProviderCallUsage } from "../providers/providerAdapter.js";
-import { type MiddlewareContext } from "./compose.js";
+import { type MiddlewareContext } from "../middleware/compose.js";
 
 /**
  * Direct telemetry emission to Supabase REST API.
@@ -62,14 +62,36 @@ export async function emitTelemetry(
 
     await fetch(`${supabaseUrl}/rest/v1/usagelogs`, {
       method: "POST",
-      headers: { 
+      headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${serviceRoleKey}`,
         "apikey": serviceRoleKey,
-        "Prefer": "return=minimal"
+        "Prefer": "return=minimal",
       },
       body: JSON.stringify(body),
     });
+
+    // Fire-and-forget: atomically increment the workspace's monthly spend.
+    // Guarded so a missing workspaceId or zero-cost call skips the RPC.
+    // The .catch() ensures this never throws into emitTelemetry's caller.
+    if (ctx.state.workspaceId && usage.costCents > 0) {
+      ctx.ctx.waitUntil(
+        fetch(`${supabaseUrl}/rest/v1/rpc/increment_workspace_spend`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${serviceRoleKey}`,
+            "apikey": serviceRoleKey,
+          },
+          body: JSON.stringify({
+            p_workspace_id: ctx.state.workspaceId,
+            p_cost_cents:   usage.costCents,
+          }),
+        }).catch((err) => {
+          console.warn("[AICore Worker] increment_workspace_spend failed:", err);
+        })
+      );
+    }
   } catch (err) {
     // Best-effort, do not throw or block
     console.warn("[AICore Worker] Telemetry emission failed:", err);

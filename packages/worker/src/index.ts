@@ -11,13 +11,13 @@ import { pickProvider } from "./routing/providerRouting.js";
 import { createSseResponse } from "./utils/streamUtils.js";
 import { emitTelemetry, withTelemetry } from "./utils/telemetry.js";
 
-// --- Middleware Chain Imports ---
 import { compose, type Middleware } from "./middleware/compose.js";
 import { withLogging } from "./middleware/logging.js";
 import { withAuth } from "./middleware/auth.js";
 import { withValidation } from "./middleware/validation.js";
 import { withCircuitBreaker } from "./middleware/circuitBreaker.js";
 import { withAdminAuth } from "./middleware/adminAuth.js";
+import { withTokenAudit } from "./middleware/tokenAudit.js";
 import { healthHandler, createKeyHandler, revokeKeyHandler, listKeysHandler } from "./handlers/adminHandlers.js";
 
 // ---------------------------------------------------------------------------
@@ -65,25 +65,44 @@ const executeProxy: Middleware = async (ctx) => {
 
   const result = await adapter.chat(params);
 
-  const responsePayload = {
-    ...result,
-    call_id: state.callId,
-    trace_id: state.traceId,
-  };
-
   if (result.ok) {
+    const audit = state.tokenAudit as
+      | { estimated: number; utilization: number; over_budget: boolean }
+      | undefined;
+
     executionCtx.waitUntil(emitTelemetry(result.usage, ctx));
-    return new Response(JSON.stringify(responsePayload), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+
+    return new Response(
+      JSON.stringify({
+        ...result,
+        call_id:  state.callId,
+        trace_id: state.traceId,
+        meta: {
+          model:               result.usage.model,
+          provider:            result.usage.provider,
+          tokens_input:        result.usage.inputTokens,
+          tokens_output:       result.usage.outputTokens,
+          cost_usd:            result.usage.costCents / 100,
+          latency_ms:          result.usage.latencyMs,
+          tokens_estimated:    audit?.estimated,
+          context_utilization: audit?.utilization,
+          over_budget:         audit?.over_budget,
+        },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
   }
 
+  // Error path — meta block is absent (undefined) per spec
   const status = result.error.details?.httpStatusCode ?? 500;
-  return new Response(JSON.stringify(responsePayload), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
+  return new Response(
+    JSON.stringify({
+      ...result,
+      call_id:  state.callId,
+      trace_id: state.traceId,
+    }),
+    { status, headers: { "Content-Type": "application/json" } }
+  );
 };
 
 // ---------------------------------------------------------------------------
@@ -100,7 +119,7 @@ const handleHealth    = compose(withLogging, withAuth,      healthMiddleware);
 const handleCreateKey = compose(withLogging, withAdminAuth, createKeyMiddleware);
 const handleRevokeKey = compose(withLogging, withAdminAuth, revokeKeyMiddleware);
 const handleListKeys  = compose(withLogging, withAdminAuth, listKeysMiddleware);
-const handleProxy     = compose(withLogging, withAuth, withValidation, withCircuitBreaker, executeProxy);
+const handleProxy = compose(withLogging, withAuth, withValidation, withCircuitBreaker, withTokenAudit, executeProxy);
 
 // ---------------------------------------------------------------------------
 // Main Worker Handler
