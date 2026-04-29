@@ -1,7 +1,7 @@
 import Hero from '@/components/marketing/Hero';
 import ProvidersBar from '@/components/marketing/ProvidersBar';
-import FeaturesGrid from '@/components/marketing/FeaturesGrid';
-import CodeSample from '@/components/marketing/CodeSample';
+import FourPillars from '@/components/marketing/FourPillars';
+import TokenSavingsChart from '@/components/marketing/TokenSavingsChart';
 import Pricing from '@/components/marketing/Pricing';
 
 export default function LandingPage() {
@@ -9,8 +9,8 @@ export default function LandingPage() {
     <div className="flex flex-col">
       <Hero />
       <ProvidersBar />
-      <FeaturesGrid />
-      <CodeSample />
+      <FourPillars />
+      <TokenSavingsChart />
       <Pricing />
     </div>
   );

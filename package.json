@@ -14,6 +14,7 @@
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",
     "clean": "turbo run clean && rm -rf node_modules",
+    "dev:dashboard": "pnpm --filter @aicore/dashboard dev",
     "dev:telemetry-gateway": "pnpm --filter @aicore/telemetry-gateway dev",
     "test:telemetry-gateway": "pnpm --filter @aicore/telemetry-gateway test",
     "build:telemetry-gateway": "pnpm --filter @aicore/telemetry-gateway build"
