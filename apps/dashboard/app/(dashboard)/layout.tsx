@@ -1,0 +1,37 @@
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { auth } from '@/lib/auth.js';
+import Sidebar from '@/components/sidebar/Sidebar.js';
+import DashboardHeader from '@/components/layout/DashboardHeader.js';
+
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session) {
+    redirect('/auth/login');
+  }
+
+  // TODO: Implement a clean way to pass page-specific titles.
+  // For now, hardcoding "Overview" as per instructions.
+  const title = "Overview";
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-[var(--bg-base)]">
+      <Sidebar userName={session.user.name} />
+      
+      <div className="flex-1 flex flex-col overflow-hidden ml-[240px]">
+        <DashboardHeader title={title} />
+        
+        <main className="flex-1 overflow-y-auto p-6 text-[var(--text-primary)]">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}
