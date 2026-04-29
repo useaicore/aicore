@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { deleteAccountAction, signOutAllSessionsAction } from '@/app/actions/account.js';
 
 export default function SettingsPageClient() {
-  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<string>('');
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async () => {

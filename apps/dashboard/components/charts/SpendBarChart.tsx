@@ -54,7 +54,11 @@ export default function SpendBarChart({ data, height = 260 }: SpendBarChartProps
             formatter={(val: number) => [formatCents(val), 'Spend']}
             cursor={{ fill: 'var(--bg-subtle)', opacity: 0.4 }}
           />
-          <Bar dataKey="costCents" radius={[0, 4, 4, 0]}>
+          <Bar 
+            dataKey="costCents" 
+            radius={[0, 4, 4, 0]}
+            animationDuration={1200}
+          >
             {data.map((entry, index) => (
               <Cell key={`cell-${index}`} fill="var(--gold-mid)" />
             ))}

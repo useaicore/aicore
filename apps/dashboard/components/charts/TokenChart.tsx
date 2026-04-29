@@ -70,6 +70,7 @@ export default function TokenChart({ data, height = 200 }: TokenChartProps) {
             stroke="var(--sky-mid)"
             fill="var(--sky-mid)"
             fillOpacity={0.4}
+            animationDuration={1500}
           />
           <Area
             type="monotone"
@@ -78,6 +79,7 @@ export default function TokenChart({ data, height = 200 }: TokenChartProps) {
             stroke="var(--gold-mid)"
             fill="var(--gold-mid)"
             fillOpacity={0.4}
+            animationDuration={1500}
           />
         </AreaChart>
       </ResponsiveContainer>

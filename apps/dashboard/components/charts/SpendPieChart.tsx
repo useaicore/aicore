@@ -46,6 +46,7 @@ export default function SpendPieChart({ data, height = 260 }: SpendPieChartProps
             dataKey="costCents"
             nameKey="provider"
             stroke="none"
+            animationDuration={1800}
           >
             {data.map((entry, index) => {
               const provider = entry.provider.toLowerCase();

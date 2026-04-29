@@ -73,7 +73,8 @@ export default function SpendAreaChart({ data, height = 220 }: SpendAreaChartPro
             strokeWidth={2}
             fillOpacity={1}
             fill="url(#colorSpend)"
-            animationDuration={1000}
+            animationDuration={1500}
+            animationBegin={200}
           />
         </AreaChart>
       </ResponsiveContainer>
