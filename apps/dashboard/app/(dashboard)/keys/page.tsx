@@ -1,8 +1,26 @@
-export default function KeysPage() {
+import { headers } from 'next/headers';
+import { auth } from '@/lib/auth.js';
+import { redirect } from 'next/navigation';
+import { getKeys } from '@/lib/queries/keys.js';
+import { formatDate, formatNumber, relativeTime } from '@/lib/format.js';
+import Badge from '@/components/ui/Badge.js';
+import EmptyState from '@/components/ui/EmptyState.js';
+import KeysPageClient from './KeysPageClient.js';
+
+export default async function KeysPage() {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session) {
+    redirect('/auth/login');
+  }
+
+  const keys = await getKeys(session.user.id);
+
   return (
-    <div>
-      <h1 className="text-[var(--gold-cream)] text-2xl font-semibold mb-6">API Keys</h1>
-      <p className="text-[var(--text-muted)] text-sm">Your API keys will appear here.</p>
+    <div className="max-w-7xl">
+      <KeysPageClient initialKeys={keys} />
     </div>
   );
 }
