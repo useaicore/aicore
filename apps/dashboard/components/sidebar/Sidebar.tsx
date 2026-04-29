@@ -1,5 +1,5 @@
-import NavItem from './NavItem.js';
-import SignOutButton from './SignOutButton.js';
+import NavItem from './NavItem';
+import SignOutButton from './SignOutButton';
 
 interface SidebarProps {
   userName: string;

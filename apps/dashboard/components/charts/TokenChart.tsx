@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { formatNumber } from '@/lib/format.js';
+import { formatNumber } from '@/lib/format';
 
 interface TokenChartProps {
   data: { date: string; inputTokens: number; outputTokens: number }[];
@@ -58,8 +58,8 @@ export default function TokenChart({ data, height = 200 }: TokenChartProps) {
               fontSize: '12px',
               color: 'var(--text-primary)',
             }}
-            formatter={(val: number, name: string) => [
-              formatNumber(val), 
+            formatter={(val, name) => [
+              formatNumber(Number(val ?? 0)), 
               name === 'inputTokens' ? 'Input' : 'Output'
             ]}
           />

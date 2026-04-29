@@ -1,6 +1,6 @@
 'use client';
 
-import { useCommandBar } from './CommandBarProvider.js';
+import { useCommandBar } from './CommandBarProvider';
 
 export function CommandBarTrigger() {
   const { toggle } = useCommandBar();

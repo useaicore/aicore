@@ -1,8 +1,8 @@
 'use server';
 
-import { auth } from '@/lib/auth.js';
+import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
-import { createKey, revokeKey } from '@/lib/queries/keys.js';
+import { createKey, revokeKey } from '@/lib/queries/keys';
 import { revalidatePath } from 'next/cache';
 
 export async function createKeyAction(formData: FormData) {

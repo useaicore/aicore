@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { deleteAccountAction, signOutAllSessionsAction } from '@/app/actions/account.js';
+import { deleteAccountAction, signOutAllSessionsAction } from '@/app/actions/account';
 
 export default function SettingsPageClient() {
   const [deleteConfirm, setDeleteConfirm] = useState<string>('');

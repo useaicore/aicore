@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { createKeyAction } from '@/app/actions/keys.js';
-import CopyButton from '@/components/ui/CopyButton.js';
-import Badge from '@/components/ui/Badge.js';
+import { createKeyAction } from '@/app/actions/keys';
+import CopyButton from '@/components/ui/CopyButton';
+import Badge from '@/components/ui/Badge';
 
 export default function CreateKeyModal({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('');

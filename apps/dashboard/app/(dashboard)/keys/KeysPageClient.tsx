@@ -1,13 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { KeyRow } from '@/lib/queries/keys.js';
-import { formatDate, relativeTime, formatNumber } from '@/lib/format.js';
-import Badge from '@/components/ui/Badge.js';
-import EmptyState from '@/components/ui/EmptyState.js';
-import CreateKeyModal from '@/components/keys/CreateKeyModal.js';
-import { revokeKeyAction } from '@/app/actions/keys.js';
-import { cn } from '@/lib/utils.js';
+import { KeyRow } from '@/lib/queries/keys';
+import { formatDate, relativeTime, formatNumber } from '@/lib/format';
+import Badge from '@/components/ui/Badge';
+import EmptyState from '@/components/ui/EmptyState';
+import CreateKeyModal from '@/components/keys/CreateKeyModal';
+import { revokeKeyAction } from '@/app/actions/keys';
+import { cn } from '@/lib/utils';
 
 export default function KeysPageClient({ initialKeys }: { initialKeys: KeyRow[] }) {
   const [showCreateModal, setShowCreateModal] = useState(false);

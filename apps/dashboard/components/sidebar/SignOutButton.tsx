@@ -1,6 +1,6 @@
 'use client';
 
-import { signOut } from '@/lib/auth-client.js';
+import { signOut } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
 
 export default function SignOutButton() {

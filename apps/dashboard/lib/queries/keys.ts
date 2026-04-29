@@ -1,4 +1,4 @@
-import { getDb } from '../db.js';
+import { getDb } from '../db';
 import crypto from 'crypto';
 
 export type KeyRow = {

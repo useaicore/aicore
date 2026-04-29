@@ -1,4 +1,4 @@
-import { getDb } from '../db.js';
+import { getDb } from '../db';
 
 export async function getDailySpend(workspaceId: string, days: number): Promise<{ date: string; costCents: number }[]> {
   const db = getDb();

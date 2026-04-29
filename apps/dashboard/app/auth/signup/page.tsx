@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { signUp, signIn } from '@/lib/auth-client.js';
+import { signUp, signIn } from '@/lib/auth-client';
 import Link from 'next/link';
 
 export default function SignupPage() {

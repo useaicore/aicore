@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import { auth } from '@/lib/auth.js';
+import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -7,14 +7,14 @@ import {
   getSpendByModel, 
   getSpendByProvider, 
   getTokenUsage 
-} from '@/lib/queries/usage.js';
-import { getTotalRequests, getTotalSpend } from '@/lib/queries/overview.js';
-import { formatCents, formatNumber } from '@/lib/format.js';
-import StatCard from '@/components/ui/StatCard.js';
-import SpendAreaChart from '@/components/charts/SpendAreaChart.js';
-import SpendBarChart from '@/components/charts/SpendBarChart.js';
-import SpendPieChart from '@/components/charts/SpendPieChart.js';
-import TokenChart from '@/components/charts/TokenChart.js';
+} from '@/lib/queries/usage';
+import { getTotalRequests, getTotalSpend } from '@/lib/queries/overview';
+import { formatCents, formatNumber } from '@/lib/format';
+import StatCard from '@/components/ui/StatCard';
+import SpendAreaChart from '@/components/charts/SpendAreaChart';
+import SpendBarChart from '@/components/charts/SpendBarChart';
+import SpendPieChart from '@/components/charts/SpendPieChart';
+import TokenChart from '@/components/charts/TokenChart';
 
 export default async function UsagePage({
   searchParams,

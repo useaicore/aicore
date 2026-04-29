@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useCommandBar } from './CommandBarProvider.js';
-import { useSearch } from '@/hooks/useSearch.js';
-import { formatCents, relativeTime } from '@/lib/format.js';
-import Badge from '@/components/ui/Badge.js';
-import { authClient } from '@/lib/auth-client.js';
-import { cn } from '@/lib/utils.js';
+import { useCommandBar } from './CommandBarProvider';
+import { useSearch } from '@/hooks/useSearch';
+import { formatCents, relativeTime } from '@/lib/format';
+import Badge from '@/components/ui/Badge';
+import { authClient } from '@/lib/auth-client';
+import { cn } from '@/lib/utils';
 
 export function CommandBarModal() {
   const { open, setOpen, workspaceId } = useCommandBar();

@@ -1,9 +1,9 @@
 import { betterAuth } from 'better-auth';
 import { magicLink } from 'better-auth/plugins';
 import pg from 'pg';
-const { Pool } = pg;
-import { env } from './env.js';
-import { sendEmail } from './email.js';
+const { Pool: PgPool } = pg;
+import { env } from './env';
+import { sendEmail } from './email';
 
 // GitHub OAuth App setup:
 // 1. github.com → Settings → Developer settings → OAuth Apps
@@ -13,7 +13,7 @@ import { sendEmail } from './email.js';
 // 5. Copy Client ID and Client Secret to .env.local
 
 export const auth = betterAuth({
-  database: new Pool({
+  database: new PgPool({
     connectionString: env.DATABASE_URL,
   }),
   emailAndPassword: {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useDebounce } from './useDebounce.js';
+import { useDebounce } from './useDebounce';
 
 export type SearchResults = {
   logs: {

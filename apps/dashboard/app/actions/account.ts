@@ -1,9 +1,9 @@
 'use server';
 
-import { auth } from '@/lib/auth.js';
+import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { getDb } from '@/lib/db.js';
+import { getDb } from '@/lib/db';
 
 export async function deleteAccountAction() {
   const session = await auth.api.getSession({
@@ -18,8 +18,8 @@ export async function deleteAccountAction() {
   // For now, we sign out and mark the user (handled via custom logic if needed, 
   // but Better Auth core handles session revocation well).
   
-  await auth.api.revokeUserSessions({
-    body: { userId: session.user.id },
+  await auth.api.revokeSessions({
+    headers: await headers(),
   });
 
   // Since we are not doing a hard delete yet, we just redirect.
@@ -35,8 +35,8 @@ export async function signOutAllSessionsAction() {
 
   if (!session) throw new Error('Unauthorized');
 
-  await auth.api.revokeUserSessions({
-    body: { userId: session.user.id },
+  await auth.api.revokeSessions({
+    headers: await headers(),
   });
 
   redirect('/auth/login');

@@ -1,11 +1,11 @@
 import { headers } from 'next/headers';
-import { auth } from '@/lib/auth.js';
+import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import { getKeys } from '@/lib/queries/keys.js';
-import { formatDate, formatNumber, relativeTime } from '@/lib/format.js';
-import Badge from '@/components/ui/Badge.js';
-import EmptyState from '@/components/ui/EmptyState.js';
-import KeysPageClient from './KeysPageClient.js';
+import { getKeys } from '@/lib/queries/keys';
+import { formatDate, formatNumber, relativeTime } from '@/lib/format';
+import Badge from '@/components/ui/Badge';
+import EmptyState from '@/components/ui/EmptyState';
+import KeysPageClient from './KeysPageClient';
 
 export default async function KeysPage() {
   const session = await auth.api.getSession({

@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import { auth } from '@/lib/auth.js';
+import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -7,14 +7,14 @@ import {
   getTotalSpend, 
   getAvgLatency, 
   getActiveKeyCount 
-} from '@/lib/queries/overview.js';
-import { getDailySpend } from '@/lib/queries/usage.js';
-import { getLogs } from '@/lib/queries/logs.js';
-import { formatCents, formatLatency, relativeTime, formatNumber } from '@/lib/format.js';
-import StatCard from '@/components/ui/StatCard.js';
-import SpendAreaChart from '@/components/charts/SpendAreaChart.js';
-import Badge from '@/components/ui/Badge.js';
-import EmptyState from '@/components/ui/EmptyState.js';
+} from '@/lib/queries/overview';
+import { getDailySpend } from '@/lib/queries/usage';
+import { getLogs } from '@/lib/queries/logs';
+import { formatCents, formatLatency, relativeTime, formatNumber } from '@/lib/format';
+import StatCard from '@/components/ui/StatCard';
+import SpendAreaChart from '@/components/charts/SpendAreaChart';
+import Badge from '@/components/ui/Badge';
+import EmptyState from '@/components/ui/EmptyState';
 
 export default async function OverviewPage({
   searchParams,

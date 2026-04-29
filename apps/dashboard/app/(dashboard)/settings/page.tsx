@@ -1,10 +1,10 @@
 import { headers } from 'next/headers';
-import { auth } from '@/lib/auth.js';
+import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { formatDate } from '@/lib/format.js';
-import CopyButton from '@/components/ui/CopyButton.js';
-import Badge from '@/components/ui/Badge.js';
+import { formatDate } from '@/lib/format';
+import CopyButton from '@/components/ui/CopyButton';
+import Badge from '@/components/ui/Badge';
 import SettingsPageClient from './SettingsPageClient';
 
 export default async function SettingsPage() {

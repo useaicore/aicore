@@ -1,11 +1,11 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { auth } from '@/lib/auth.js';
-import Sidebar from '@/components/sidebar/Sidebar.js';
-import MobileNav from '@/components/layout/MobileNav.js';
-import DashboardHeader from '@/components/layout/DashboardHeader.js';
-import { CommandBarProvider } from '@/components/command/CommandBarProvider.js';
-import { CommandBarModal } from '@/components/command/CommandBarModal.js';
+import { auth } from '@/lib/auth';
+import Sidebar from '@/components/sidebar/Sidebar';
+import MobileNav from '@/components/layout/MobileNav';
+import DashboardHeader from '@/components/layout/DashboardHeader';
+import { CommandBarProvider } from '@/components/command/CommandBarProvider';
+import { CommandBarModal } from '@/components/command/CommandBarModal';
 
 export default async function DashboardLayout({
   children,

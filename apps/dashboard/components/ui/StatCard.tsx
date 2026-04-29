@@ -1,4 +1,4 @@
-import Badge from './Badge.js';
+import Badge from './Badge';
 
 interface StatCardProps {
   label: string;

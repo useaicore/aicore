@@ -1,0 +1,80 @@
+import { cn } from '@/lib/utils';
+
+export default function TerminalDemo() {
+  const curlData = `'{"model": "gpt-4o", "messages": [{"role": "user", "content": "Hello"}]}'`;
+
+  return (
+    <div className="w-full max-w-[660px] mx-auto animate-in fade-in zoom-in-95 duration-1000 delay-500">
+      <div className="relative border-gradient-gold rounded-[var(--radius-lg)] glow-gold overflow-hidden">
+        {/* Title Bar */}
+        <div className="h-9 bg-[var(--color-bg-surface)] border-b border-[var(--color-text-faint)] flex items-center justify-between px-4">
+          <div className="flex gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-[#FF5F57]" />
+            <div className="w-2.5 h-2.5 rounded-full bg-[#FEBC2E]" />
+            <div className="w-2.5 h-2.5 rounded-full bg-[#28C840]" />
+          </div>
+          <div className="text-[var(--color-text-muted)] text-[10px] font-medium tracking-widest uppercase">terminal</div>
+          <div className="w-10" />
+        </div>
+
+        {/* Content */}
+        <div className="p-6 bg-[var(--color-bg-elevated)] font-mono text-[13px] text-left leading-relaxed">
+          <div className="flex gap-3">
+            <span className="text-[var(--color-gold-bright)] opacity-70 select-none">$</span>
+            <div className="flex-1 space-y-1">
+              <div className="text-[var(--color-text-primary)]">
+                curl https://api.aicore.dev/v1/chat/completions \
+              </div>
+              <div className="text-[var(--color-text-primary)]">
+                <span className="text-[var(--color-sky-bright)] opacity-80">  -H </span>
+                "Authorization: Bearer ak_live_••••••••••••" \
+              </div>
+              <div className="text-[var(--color-text-primary)]">
+                <span className="text-[var(--color-sky-bright)] opacity-80">  -H </span>
+                "Content-Type: application/json" \
+              </div>
+              <div className="text-[var(--color-text-primary)]">
+                <span className="text-[var(--color-sky-bright)] opacity-80">  -d </span>
+                {curlData}
+              </div>
+            </div>
+          </div>
+
+          <div className="h-4" />
+
+          <div className="space-y-1 pl-6">
+            <div className="text-[var(--color-text-primary)]">{'{'}</div>
+            <div className="text-[var(--color-text-secondary)]">
+              <span className="text-[var(--color-sky-bright)]">  "id"</span>: "chatcmpl-9f3K...",
+            </div>
+            <div className="text-[var(--color-text-secondary)]">
+              <span className="text-[var(--color-sky-bright)]">  "model"</span>: <span className="text-[var(--color-gold-cream)]">"gpt-4o"</span>,
+            </div>
+            <div className="text-[var(--color-text-secondary)]">
+              <span className="text-[var(--color-sky-bright)]">  "usage"</span>: {'{'}
+            </div>
+            <div className="text-[var(--color-text-secondary)]">
+              <span className="text-[var(--color-sky-bright)]">    "total_tokens"</span>: <span className="text-[var(--color-gold-bright)]">142</span>
+            </div>
+            <div className="text-[var(--color-text-secondary)]">
+              {'  },'}
+            </div>
+            <div className="text-[var(--color-text-secondary)]">
+              <span className="text-[var(--color-sky-bright)]">  "cost_cents"</span>: <span className="text-[var(--color-success)]">3</span>
+            </div>
+            <div className="text-[var(--color-text-primary)]">{'}'}</div>
+          </div>
+        </div>
+
+        {/* Bottom Status Bar */}
+        <div className="h-8 bg-[var(--color-bg-surface)]/50 border-t border-[var(--color-text-faint)] flex items-center justify-between px-4">
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)]" />
+            <span className="text-[var(--color-text-muted)] text-[10px] font-medium uppercase tracking-wider">Routed via OpenAI · 342ms</span>
+          </div>
+          <div className="text-[var(--color-text-muted)] text-[10px] font-medium uppercase tracking-wider">Logged · Cost tracked</div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils.js';
+import { cn } from '@/lib/utils';
 
 export default function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (

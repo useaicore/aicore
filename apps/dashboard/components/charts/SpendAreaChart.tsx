@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { formatCents } from '@/lib/format.js';
+import { formatCents } from '@/lib/format';
 
 interface SpendAreaChartProps {
   data: { date: string; costCents: number }[];
@@ -60,7 +60,7 @@ export default function SpendAreaChart({ data, height = 220 }: SpendAreaChartPro
               fontSize: '12px',
               color: 'var(--text-primary)',
             }}
-            formatter={(val: number) => [formatCents(val), 'Spend']}
+            formatter={(val) => [formatCents(Number(val ?? 0)), 'Spend']}
             labelFormatter={(label) => {
               const date = new Date(label);
               return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });

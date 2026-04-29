@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import Sidebar from '../sidebar/Sidebar.js';
+import Sidebar from '../sidebar/Sidebar';
 
 export default function MobileNav({ userName }: { userName: string }) {
   const [isOpen, setIsOpen] = useState(false);

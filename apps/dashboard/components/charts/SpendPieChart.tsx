@@ -8,7 +8,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { formatCents } from '@/lib/format.js';
+import { formatCents } from '@/lib/format';
 
 interface SpendPieChartProps {
   data: { provider: string; costCents: number }[];
@@ -62,7 +62,7 @@ export default function SpendPieChart({ data, height = 260 }: SpendPieChartProps
               fontSize: '12px',
               color: 'var(--text-primary)',
             }}
-            formatter={(val: number) => [formatCents(val), 'Spend']}
+            formatter={(val) => [formatCents(Number(val ?? 0)), 'Spend']}
           />
           <Legend 
             verticalAlign="bottom" 

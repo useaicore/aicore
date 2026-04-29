@@ -1,12 +1,12 @@
 import { headers } from 'next/headers';
-import { auth } from '@/lib/auth.js';
+import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { getLogs, getLogFilters } from '@/lib/queries/logs.js';
-import { formatCents, formatLatency, formatDate, formatNumber } from '@/lib/format.js';
-import Badge from '@/components/ui/Badge.js';
-import EmptyState from '@/components/ui/EmptyState.js';
-import CopyButton from '@/components/ui/CopyButton.js';
+import { getLogs, getLogFilters } from '@/lib/queries/logs';
+import { formatCents, formatLatency, formatDate, formatNumber } from '@/lib/format';
+import Badge from '@/components/ui/Badge';
+import EmptyState from '@/components/ui/EmptyState';
+import CopyButton from '@/components/ui/CopyButton';
 
 export default async function LogsPage({
   searchParams,

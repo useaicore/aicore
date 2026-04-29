@@ -2,7 +2,7 @@ interface DashboardHeaderProps {
   title: string;
 }
 
-import { CommandBarTrigger } from '../command/CommandBarTrigger.js';
+import { CommandBarTrigger } from '../command/CommandBarTrigger';
 
 export default function DashboardHeader({ title }: DashboardHeaderProps) {
   return (

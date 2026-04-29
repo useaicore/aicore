@@ -1,4 +1,4 @@
-import { getDb } from '../db.js';
+import { getDb } from '../db';
 
 export async function getTotalRequests(workspaceId: string, days: number): Promise<{ count: number; change: number }> {
   const db = getDb();

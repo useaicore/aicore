@@ -1,12 +1,12 @@
-import pg from 'pg';
-const { Pool } = pg;
-import { env } from './env.js';
+import pg, { type Pool } from 'pg';
+const { Pool: PgPool } = pg;
+import { env } from './env';
 
 let pool: Pool | null = null;
 
 export function getDb(): Pool {
   if (!pool) {
-    pool = new Pool({ connectionString: env.DATABASE_URL });
+    pool = new PgPool({ connectionString: env.DATABASE_URL }) as unknown as Pool;
   }
   return pool;
 }
