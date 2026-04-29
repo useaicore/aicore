@@ -4,6 +4,7 @@ import { registerContextCommands } from "./commands/context/index.js";
 import { aicoreInitCommand } from "./commands/aicore-init.js";
 import { aicoreWhoamiCommand } from "./commands/aicore-whoami.js";
 import { aicoreKeysListCommand } from "./commands/aicore-keys-list.js";
+import { aicoreLogsCommand } from "./commands/aicore-logs.js";
 
 const program = new Command();
 
@@ -30,5 +31,6 @@ registerContextCommands(program);
 program.addCommand(aicoreInitCommand());
 program.addCommand(aicoreWhoamiCommand());
 program.addCommand(aicoreKeysListCommand());
+program.addCommand(aicoreLogsCommand());
 
 await program.parseAsync(process.argv);

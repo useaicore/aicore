@@ -19,6 +19,7 @@ import { withCircuitBreaker } from "./middleware/circuitBreaker.js";
 import { withAdminAuth } from "./middleware/adminAuth.js";
 import { withTokenAudit } from "./middleware/tokenAudit.js";
 import { healthHandler, createKeyHandler, revokeKeyHandler, listKeysHandler } from "./handlers/adminHandlers.js";
+import { listLogsHandler } from "./handlers/logHandlers.js";
 
 // ---------------------------------------------------------------------------
 // Business Logic: Proxy Execution
@@ -113,12 +114,14 @@ const healthMiddleware: Middleware = async (ctx) => healthHandler(ctx);
 const createKeyMiddleware: Middleware = async (ctx) => createKeyHandler(ctx);
 const revokeKeyMiddleware: Middleware = async (ctx) => revokeKeyHandler(ctx);
 const listKeysMiddleware: Middleware = async (ctx) => listKeysHandler(ctx);
+const listLogsMiddleware: Middleware = async (ctx) => listLogsHandler(ctx);
 
 // Composed chains
 const handleHealth    = compose(withLogging, withAuth,      healthMiddleware);
 const handleCreateKey = compose(withLogging, withAdminAuth, createKeyMiddleware);
 const handleRevokeKey = compose(withLogging, withAdminAuth, revokeKeyMiddleware);
 const handleListKeys  = compose(withLogging, withAdminAuth, listKeysMiddleware);
+const handleListLogs  = compose(withLogging, withAdminAuth, listLogsMiddleware);
 const handleProxy = compose(withLogging, withAuth, withValidation, withCircuitBreaker, withTokenAudit, executeProxy);
 
 // ---------------------------------------------------------------------------
@@ -146,6 +149,10 @@ export default {
 
     if (method === "GET" && pathname === "/v1/keys") {
       return handleListKeys(request, env, ctx);
+    }
+
+    if (method === "GET" && pathname === "/v1/logs") {
+      return handleListLogs(request, env, ctx);
     }
 
     // Wildcard proxy — matches POST /v1/*
