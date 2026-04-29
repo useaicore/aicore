@@ -2,7 +2,7 @@ interface DashboardHeaderProps {
   title: string;
 }
 
-import CommandMenu from '../search/CommandMenu.js';
+import { CommandBarTrigger } from '../command/CommandBarTrigger.js';
 
 export default function DashboardHeader({ title }: DashboardHeaderProps) {
   return (
@@ -10,7 +10,7 @@ export default function DashboardHeader({ title }: DashboardHeaderProps) {
       <h2 className="text-[var(--text-secondary)] text-sm font-medium">{title}</h2>
       
       <div className="flex items-center gap-4">
-        <CommandMenu />
+        <CommandBarTrigger />
         <div className="h-8 w-px bg-[var(--text-faint)] hidden md:block" />
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[var(--gold-dim)] to-[var(--sky-dim)] flex items-center justify-center text-[10px] font-bold text-white">

@@ -63,7 +63,7 @@ export default function SettingsPageClient() {
                   />
                   <button 
                     onClick={handleDelete}
-                    disabled={deleteConfirm !== 'DELETE' || isDeleting}
+                    disabled={(deleteConfirm as string) !== 'DELETE' || isDeleting}
                     className="bg-[var(--error)] text-white text-xs font-bold rounded-md px-4 py-1.5 hover:opacity-90 disabled:opacity-40 transition-all"
                   >
                     Confirm

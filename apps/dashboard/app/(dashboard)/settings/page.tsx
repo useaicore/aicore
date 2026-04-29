@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { formatDate } from '@/lib/format.js';
 import CopyButton from '@/components/ui/CopyButton.js';
 import Badge from '@/components/ui/Badge.js';
-import SettingsPageClient from './SettingsPageClient.js';
+import SettingsPageClient from './SettingsPageClient';
 
 export default async function SettingsPage() {
   const session = await auth.api.getSession({
