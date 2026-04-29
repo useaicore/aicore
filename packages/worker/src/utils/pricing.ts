@@ -27,12 +27,14 @@ const PRICING_TABLE: Record<string, ModelPricing> = {
   "claude-3-haiku-20240307":    { inputCostPer1M: 0.25, outputCostPer1M: 1.25 },
 
   // Google Gemini (v1.5 Flash)
-  "gemini-1.5-flash": { inputCostPer1M: 0.075, outputCostPer1M: 0.30 },
-  "gemini-1.5-pro":   { inputCostPer1M: 3.50,  outputCostPer1M: 10.50 },
+  "gemini-1.5-flash":    { inputCostPer1M: 0.075, outputCostPer1M: 0.30 },
+  "gemini-flash-latest": { inputCostPer1M: 0.075, outputCostPer1M: 0.30 },
+  "gemini-1.5-pro":      { inputCostPer1M: 3.50,  outputCostPer1M: 10.50 },
 
   // Groq (Llama 3 variants)
-  "llama3-8b-8192":  { inputCostPer1M: 0.05, outputCostPer1M: 0.08 },
-  "llama3-70b-8192": { inputCostPer1M: 0.59, outputCostPer1M: 0.79 },
+  "llama3-8b-8192":        { inputCostPer1M: 0.05, outputCostPer1M: 0.08 },
+  "llama-3.1-8b-instant":  { inputCostPer1M: 0.05, outputCostPer1M: 0.08 },
+  "llama3-70b-8192":       { inputCostPer1M: 0.59, outputCostPer1M: 0.79 },
 };
 
 /**
@@ -51,6 +53,6 @@ export function calculateCost(
 
   const inputCost = (inputTokens / 1_000_000) * pricing.inputCostPer1M;
   const outputCost = (outputTokens / 1_000_000) * pricing.outputCostPer1M;
-
-  return inputCost + outputCost;
+  const total = inputCost + outputCost;
+  return total > 0 ? Math.ceil(total) : 0;
 }
