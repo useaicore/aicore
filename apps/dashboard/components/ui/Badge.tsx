@@ -8,69 +8,45 @@ interface BadgeProps {
   className?: string;
 }
 
-const config = {
-  success: {
-    bg:     'rgba(34,197,94,0.08)',
-    border: 'rgba(34,197,94,0.18)',
-    text:   'var(--success)',
-    dot:    '#22C55E',
-  },
-  warning: {
-    bg:     'rgba(232,184,75,0.08)',
-    border: 'rgba(232,184,75,0.18)',
-    text:   'var(--warning)',
-    dot:    '#E8B84B',
-  },
-  error: {
-    bg:     'rgba(239,68,68,0.08)',
-    border: 'rgba(239,68,68,0.18)',
-    text:   'var(--error)',
-    dot:    '#EF4444',
-  },
-  info: {
-    bg:     'rgba(74,143,170,0.1)',
-    border: 'rgba(74,143,170,0.2)',
-    text:   'var(--sky-bright)',
-    dot:    '#7ACCE0',
-  },
-  muted: {
-    bg:     'rgba(255,255,255,0.04)',
-    border: 'rgba(255,255,255,0.07)',
-    text:   'var(--text-muted)',
-    dot:    'var(--text-muted)',
-  },
+const variants = {
+  success: 'bg-success/10 border-success/20 text-success',
+  warning: 'bg-warning/10 border-warning/20 text-warning',
+  error:   'bg-error/10 border-error/20 text-error',
+  info:    'bg-sky-bright/10 border-sky-bright/20 text-sky-bright',
+  muted:   'bg-white/5 border-white/10 text-text-muted',
+};
+
+const dotColors = {
+  success: 'bg-success',
+  warning: 'bg-warning',
+  error:   'bg-error',
+  info:    'bg-sky-bright',
+  muted:   'bg-text-muted',
 };
 
 export default function Badge({ variant = 'info', label, size = 'sm', dot, className }: BadgeProps) {
-  const c = config[variant];
   const isXs = size === 'xs';
 
   return (
     <span
-      className={cn('inline-flex items-center font-semibold rounded-full', className)}
-      style={{
-        background: c.bg,
-        border: `1px solid ${c.border}`,
-        color: c.text,
-        fontSize: isXs ? 10 : 11,
-        padding: isXs ? '2px 7px' : '3px 9px',
-        letterSpacing: '0.02em',
-        gap: dot ? 5 : 0,
-      }}
+      className={cn(
+        'inline-flex items-center font-bold rounded-full border backdrop-blur-md transition-all',
+        isXs ? 'text-[9px] px-1.5 py-0.5 gap-1' : 'text-[10px] px-2 py-1 gap-1.5',
+        'uppercase tracking-wider',
+        variants[variant],
+        className
+      )}
     >
       {dot && (
-        <span
-          style={{
-            width: isXs ? 5 : 6,
-            height: isXs ? 5 : 6,
-            borderRadius: '50%',
-            background: c.dot,
-            flexShrink: 0,
-            display: 'inline-block',
-          }}
-        />
+        <span className={cn(
+          'rounded-full flex-shrink-0',
+          isXs ? 'w-1 h-1' : 'w-1.5 h-1.5',
+          dotColors[variant],
+          variant !== 'muted' && 'animate-pulse'
+        )} />
       )}
       {label}
     </span>
   );
 }
+
