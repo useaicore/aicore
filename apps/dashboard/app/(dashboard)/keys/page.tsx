@@ -2,8 +2,8 @@ import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
-import KeysSection from '@/components/keys/KeysSection';
-import { TableSkeleton } from '@/components/ui/DashboardSkeletons';
+import KeysSection from '../../../components/keys/KeysSection';
+import { TableSkeleton } from '../../../components/ui/DashboardSkeletons';
 
 export default async function KeysPage() {
   const session = await auth.api.getSession({
@@ -29,4 +29,3 @@ export default async function KeysPage() {
     </div>
   );
 }
-

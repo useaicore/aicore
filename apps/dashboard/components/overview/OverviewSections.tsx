@@ -54,15 +54,18 @@ export async function OverviewChart({ workspaceId, days }: { workspaceId: string
   const dailySpend = await getDailySpend(workspaceId, days);
 
   return (
-    <div className="glass-strong rounded-2xl p-6 mb-10 border-white/5">
-      <div className="flex items-center justify-between mb-8">
+    <div className="glass-strong rounded-2xl p-6 mb-10 border-white/5 shadow-2xl relative overflow-hidden group">
+      <div className="absolute inset-0 bg-gradient-to-br from-gold-mid/[0.02] to-transparent pointer-events-none" />
+      <div className="flex items-center justify-between mb-8 relative z-10">
         <div className="space-y-1">
           <h3 className="text-text-secondary text-xs font-bold uppercase tracking-widest">Spend over time</h3>
           <p className="text-text-muted text-[10px]">Usage across all API keys</p>
         </div>
-        <span className="text-text-faint text-[10px] uppercase font-black tracking-[0.2em] bg-white/3 px-2 py-1 rounded">USD</span>
+        <span className="text-text-faint text-[10px] uppercase font-black tracking-[0.2em] bg-white/5 border border-white/5 px-2.5 py-1 rounded-lg">USD</span>
       </div>
-      <SpendAreaChart data={dailySpend} />
+      <div className="relative z-10">
+        <SpendAreaChart data={dailySpend} />
+      </div>
     </div>
   );
 }
@@ -82,7 +85,7 @@ export async function OverviewLogs({ workspaceId }: { workspaceId: string }) {
   }
 
   return (
-    <div className="glass rounded-2xl overflow-hidden border-white/5 shadow-2xl">
+    <div className="glass rounded-2xl overflow-hidden border border-white/5 shadow-2xl">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm border-collapse">
           <thead>
@@ -101,7 +104,7 @@ export async function OverviewLogs({ workspaceId }: { workspaceId: string }) {
               <tr key={log.callId} className="hover:bg-white/[0.02] transition-colors group">
                 <td className="px-6 py-4 text-text-secondary whitespace-nowrap text-xs">{relativeTime(log.timestampMs)}</td>
                 <td className="px-6 py-4">
-                  <code className="text-sky-bright text-xs font-mono bg-sky-mid/10 px-1.5 py-0.5 rounded border border-sky-mid/20">{log.model}</code>
+                  <code className="text-sky-bright text-[11px] font-mono bg-sky-mid/10 px-1.5 py-0.5 rounded border border-sky-mid/20">{log.model}</code>
                 </td>
                 <td className="px-6 py-4 text-text-muted text-xs capitalize">{log.provider}</td>
                 <td className="px-6 py-4 text-text-secondary tabular-nums text-xs">{formatNumber(log.totalTokens)}</td>

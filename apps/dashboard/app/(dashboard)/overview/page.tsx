@@ -7,12 +7,12 @@ import {
   OverviewStats, 
   OverviewChart, 
   OverviewLogs 
-} from '@/components/overview/OverviewSections';
+} from '../../../components/overview/OverviewSections';
 import { 
   StatCardSkeleton, 
   ChartSkeleton, 
   TableSkeleton 
-} from '@/components/ui/DashboardSkeletons';
+} from '../../../components/ui/DashboardSkeletons';
 
 export default async function OverviewPage({
   searchParams,
@@ -45,7 +45,7 @@ export default async function OverviewPage({
           <p className="text-text-muted text-sm font-medium">Monitor your API performance and usage metrics.</p>
         </div>
 
-        <div className="flex glass border-white/5 rounded-xl p-1 shadow-xl">
+        <div className="flex glass border-white/5 rounded-xl p-1 shadow-xl overflow-hidden">
           {periods.map((p) => (
             <Link
               key={p.value}
@@ -53,7 +53,7 @@ export default async function OverviewPage({
               className={`px-4 py-1.5 text-[11px] font-black uppercase tracking-widest rounded-lg transition-all ${
                 period === p.value
                   ? 'bg-gold-mid/10 border border-gold-mid/30 text-gold-cream shadow-inner'
-                  : 'text-text-muted hover:text-text-primary'
+                  : 'text-text-muted hover:text-text-primary hover:bg-white/5'
               }`}
             >
               {p.label}
@@ -83,7 +83,7 @@ export default async function OverviewPage({
             <h3 className="text-text-secondary text-xs font-bold uppercase tracking-widest">Recent Requests</h3>
             <p className="text-text-muted text-[10px]">Latest traffic processed by AICore</p>
           </div>
-          <Link href="/logs" className="text-sky-mid text-xs font-bold hover:text-sky-bright transition-colors bg-sky-mid/5 px-3 py-1.5 rounded-lg border border-sky-mid/10 hover:border-sky-mid/30">
+          <Link href="/logs" className="text-sky-mid text-xs font-bold hover:text-sky-bright transition-all bg-sky-mid/5 px-4 py-2 rounded-xl border border-sky-mid/10 hover:border-sky-mid/30 active:scale-95">
             View all logs →
           </Link>
         </div>
@@ -95,4 +95,3 @@ export default async function OverviewPage({
     </div>
   );
 }
-
