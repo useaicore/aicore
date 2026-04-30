@@ -39,13 +39,20 @@ export default function KeysPageClient({ initialKeys }: { initialKeys: KeyRow[] 
       </div>
 
       {initialKeys.length === 0 ? (
-        <EmptyState message="You haven't created any API keys yet." />
+        <EmptyState
+          message="No API keys yet."
+          sub="Create your first key to start making authenticated requests to AICore."
+          icon="◇"
+        />
       ) : (
-        <div className="bg-[var(--bg-surface)] border border-[var(--text-faint)] rounded-[var(--radius-lg)] overflow-hidden">
+        <div
+          className="rounded-[var(--radius-lg)] overflow-hidden"
+          style={{ border: '1px solid rgba(255,255,255,0.06)' }}
+        >
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">
               <thead>
-                <tr className="border-b border-[var(--text-faint)] bg-[var(--bg-subtle)]/30">
+                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
                   <th className="px-4 py-3 text-[var(--text-muted)] font-medium text-[10px] uppercase tracking-wider">Name</th>
                   <th className="px-4 py-3 text-[var(--text-muted)] font-medium text-[10px] uppercase tracking-wider">Prefix</th>
                   <th className="px-4 py-3 text-[var(--text-muted)] font-medium text-[10px] uppercase tracking-wider text-center">Env</th>
@@ -55,12 +62,13 @@ export default function KeysPageClient({ initialKeys }: { initialKeys: KeyRow[] 
                   <th className="px-4 py-3 text-[var(--text-muted)] font-medium text-[10px] uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[var(--text-faint)]">
-                {initialKeys.map((key) => (
-                  <tr key={key.id} className={cn(
-                    "hover:bg-[var(--bg-subtle)]/50 transition-colors",
-                    !key.isActive && "opacity-40 grayscale-[0.5]"
-                  )}>
+              <tbody>
+                {initialKeys.map((key, i) => (
+                  <tr
+                    key={key.id}
+                    className={cn('hover:bg-[rgba(255,255,255,0.02)] transition-colors', !key.isActive && 'opacity-40 grayscale-[0.5]')}
+                    style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.04)' : undefined }}
+                  >
                     <td className="px-4 py-3 text-[var(--text-primary)] font-medium">{key.name}</td>
                     <td className="px-4 py-3">
                       <code className="text-[var(--sky-bright)] text-xs font-mono">{key.keyPrefix}...</code>

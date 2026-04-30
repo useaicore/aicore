@@ -48,6 +48,8 @@ export default async function OverviewPage({
     { label: '90d', value: '90' },
   ];
 
+  const isNewUser = requests.count === 0;
+
   return (
     <div className="max-w-7xl">
       <div className="flex items-center justify-between mb-8">
@@ -56,7 +58,7 @@ export default async function OverviewPage({
           <p className="text-[var(--text-muted)] text-sm">Monitor your API performance and usage.</p>
         </div>
 
-        <div className="flex bg-[var(--bg-surface)] border border-[var(--text-faint)] rounded-lg p-1">
+        <div className="flex bg-[var(--bg-surface)] border border-[rgba(255,255,255,0.06)] rounded-lg p-1">
           {periods.map((p) => (
             <Link
               key={p.value}
@@ -73,33 +75,140 @@ export default async function OverviewPage({
         </div>
       </div>
 
+      {/* Onboarding banner — shown only when no requests have been made */}
+      {isNewUser && (
+        <div
+          className="mb-8 rounded-xl p-6"
+          style={{
+            background: 'linear-gradient(135deg, rgba(196,146,48,0.05) 0%, rgba(74,143,170,0.04) 100%)',
+            border: '1px solid rgba(196,146,48,0.15)',
+          }}
+        >
+          <div className="flex items-start justify-between gap-6 mb-6">
+            <div>
+              <span className="text-[var(--gold-mid)] text-[10px] font-bold uppercase tracking-[0.2em] block mb-2">
+                Getting Started
+              </span>
+              <h2 className="text-[var(--text-primary)] text-lg font-semibold mb-1">
+                Make your first API call in 60 seconds
+              </h2>
+              <p className="text-[var(--text-muted)] text-sm max-w-[480px]">
+                Point your existing OpenAI SDK at AICore. No new libraries needed — just two lines of config.
+              </p>
+            </div>
+            <Link
+              href="/keys"
+              className="btn-primary flex-shrink-0 text-sm px-4 py-2"
+            >
+              Create API key →
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              {
+                step: '01',
+                title: 'Create an API key',
+                desc: 'Generate a key from the Keys page. One key unlocks all providers.',
+                href: '/keys',
+                cta: 'Go to Keys',
+              },
+              {
+                step: '02',
+                title: 'Install & configure',
+                desc: null,
+                code: `import OpenAI from 'openai'\n\nconst ai = new OpenAI({\n  apiKey: process.env.AICORE_API_KEY,\n  baseURL: 'https://api.aicore.dev/v1',\n})`,
+              },
+              {
+                step: '03',
+                title: 'Make a call',
+                desc: null,
+                code: `const res = await ai.chat.completions.create({\n  model: 'gpt-4o-mini',\n  messages: [{ role: 'user',\n    content: 'Hello AICore!' }],\n})`,
+              },
+            ].map((item) => (
+              <div
+                key={item.step}
+                className="rounded-lg p-4"
+                style={{
+                  background: 'rgba(13,11,16,0.6)',
+                  border: '1px solid rgba(255,255,255,0.05)',
+                }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <span
+                    className="text-[10px] font-black tabular-nums"
+                    style={{
+                      color: 'var(--gold-mid)',
+                      fontFamily: 'var(--font-geist-mono, monospace)',
+                    }}
+                  >
+                    {item.step}
+                  </span>
+                  <span className="text-[var(--text-secondary)] text-xs font-semibold">{item.title}</span>
+                </div>
+                {item.desc && (
+                  <p className="text-[var(--text-muted)] text-xs leading-relaxed mb-3">{item.desc}</p>
+                )}
+                {item.code && (
+                  <pre
+                    className="text-[10.5px] leading-[1.7] rounded-md p-3 overflow-x-auto"
+                    style={{
+                      fontFamily: 'var(--font-geist-mono, monospace)',
+                      background: 'rgba(0,0,0,0.4)',
+                      color: 'rgba(245,236,215,0.7)',
+                      border: '1px solid rgba(255,255,255,0.05)',
+                    }}
+                  >
+                    {item.code}
+                  </pre>
+                )}
+                {item.cta && item.href && (
+                  <Link
+                    href={item.href}
+                    className="mt-3 inline-flex items-center gap-1 text-[var(--gold-mid)] text-xs font-semibold hover:text-[var(--gold-bright)] transition-colors"
+                  >
+                    {item.cta} →
+                  </Link>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard 
-          label="Total Requests" 
-          value={formatNumber(requests.count)} 
-          change={requests.change} 
+        <StatCard
+          label="Total Requests"
+          value={formatNumber(requests.count)}
+          change={requests.change}
         />
-        <StatCard 
-          label="Total Spend" 
-          value={formatCents(spend.cents)} 
-          change={spend.change} 
+        <StatCard
+          label="Total Spend"
+          value={formatCents(spend.cents)}
+          change={spend.change}
         />
-        <StatCard 
-          label="Avg Latency" 
-          value={latency.ms} 
-          unit="ms" 
-          change={latency.change} 
+        <StatCard
+          label="Avg Latency"
+          value={latency.ms}
+          unit="ms"
+          change={latency.change}
         />
-        <StatCard 
-          label="Active Keys" 
-          value={activeKeys} 
-          change={null} 
+        <StatCard
+          label="Active Keys"
+          value={activeKeys}
+          change={null}
         />
       </div>
 
       {/* Main Chart Section */}
-      <div className="bg-[var(--bg-surface)] border border-[var(--text-faint)] rounded-[var(--radius-lg)] p-6 mb-10">
+      <div
+        className="rounded-[var(--radius-lg)] p-6 mb-10"
+        style={{
+          background: 'var(--bg-surface)',
+          border: '1px solid rgba(255,255,255,0.06)',
+        }}
+      >
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-[var(--text-secondary)] text-sm font-medium">Spend over time</h3>
           <span className="text-[var(--text-faint)] text-[10px] uppercase font-bold tracking-widest">USD</span>
@@ -117,13 +226,26 @@ export default async function OverviewPage({
         </div>
 
         {recentLogs.rows.length === 0 ? (
-          <EmptyState message="No requests yet. Make your first API call." />
+          <EmptyState
+            message="No requests yet."
+            sub="Make your first API call to see logs appear here in real time."
+            action={{ label: 'View setup guide', href: '/docs' }}
+            icon="◈"
+          />
         ) : (
-          <div className="bg-[var(--bg-surface)] border border-[var(--text-faint)] rounded-[var(--radius-lg)] overflow-hidden">
+          <div
+            className="rounded-[var(--radius-lg)] overflow-hidden"
+            style={{ border: '1px solid rgba(255,255,255,0.06)' }}
+          >
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
-                  <tr className="border-b border-[var(--text-faint)] bg-[var(--bg-subtle)]/30">
+                  <tr
+                    style={{
+                      borderBottom: '1px solid rgba(255,255,255,0.06)',
+                      background: 'rgba(255,255,255,0.02)',
+                    }}
+                  >
                     <th className="px-4 py-3 text-[var(--text-muted)] font-medium text-[10px] uppercase tracking-wider">Time</th>
                     <th className="px-4 py-3 text-[var(--text-muted)] font-medium text-[10px] uppercase tracking-wider">Model</th>
                     <th className="px-4 py-3 text-[var(--text-muted)] font-medium text-[10px] uppercase tracking-wider">Provider</th>
@@ -133,9 +255,15 @@ export default async function OverviewPage({
                     <th className="px-4 py-3 text-[var(--text-muted)] font-medium text-[10px] uppercase tracking-wider text-center">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[var(--text-faint)]">
-                  {recentLogs.rows.map((log) => (
-                    <tr key={log.callId} className="hover:bg-[var(--bg-subtle)]/50 transition-colors">
+                <tbody>
+                  {recentLogs.rows.map((log, i) => (
+                    <tr
+                      key={log.callId}
+                      className="hover:bg-[rgba(255,255,255,0.02)] transition-colors"
+                      style={{
+                        borderTop: i > 0 ? '1px solid rgba(255,255,255,0.04)' : undefined,
+                      }}
+                    >
                       <td className="px-4 py-3 text-[var(--text-secondary)] whitespace-nowrap">{relativeTime(log.timestampMs)}</td>
                       <td className="px-4 py-3">
                         <code className="text-[var(--sky-bright)] text-xs font-mono">{log.model}</code>
@@ -152,7 +280,7 @@ export default async function OverviewPage({
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <Badge 
+                        <Badge
                           variant={log.statusCode < 400 ? 'success' : log.statusCode < 500 ? 'warning' : 'error'}
                           label={log.statusCode}
                           size="xs"

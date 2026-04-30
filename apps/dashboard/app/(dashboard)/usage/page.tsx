@@ -2,11 +2,11 @@ import { headers } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  getDailySpend, 
-  getSpendByModel, 
-  getSpendByProvider, 
-  getTokenUsage 
+import {
+  getDailySpend,
+  getSpendByModel,
+  getSpendByProvider,
+  getTokenUsage
 } from '@/lib/queries/usage';
 import { getTotalRequests, getTotalSpend } from '@/lib/queries/overview';
 import { formatCents, formatNumber } from '@/lib/format';
@@ -15,6 +15,13 @@ import SpendAreaChart from '@/components/charts/SpendAreaChart';
 import SpendBarChart from '@/components/charts/SpendBarChart';
 import SpendPieChart from '@/components/charts/SpendPieChart';
 import TokenChart from '@/components/charts/TokenChart';
+
+const chartCard = {
+  background: 'var(--bg-surface)',
+  border: '1px solid rgba(255,255,255,0.06)',
+  borderRadius: 'var(--radius-lg)',
+  padding: '1.5rem',
+} as const;
 
 export default async function UsagePage({
   searchParams,
@@ -58,7 +65,10 @@ export default async function UsagePage({
           <p className="text-[var(--text-muted)] text-sm">Deep dive into your API consumption.</p>
         </div>
 
-        <div className="flex bg-[var(--bg-surface)] border border-[var(--text-faint)] rounded-lg p-1">
+        <div
+          className="flex rounded-lg p-1"
+          style={{ background: 'var(--bg-surface)', border: '1px solid rgba(255,255,255,0.06)' }}
+        >
           {periods.map((p) => (
             <Link
               key={p.value}
@@ -83,27 +93,27 @@ export default async function UsagePage({
       </div>
 
       {/* Spend Area Chart */}
-      <div className="bg-[var(--bg-surface)] border border-[var(--text-faint)] rounded-[var(--radius-lg)] p-6 mb-6">
+      <div style={{ ...chartCard, marginBottom: '1.5rem' }}>
         <h3 className="text-[var(--text-secondary)] text-sm font-medium mb-8">Spend Over Time</h3>
         <SpendAreaChart data={dailySpend} height={280} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Spend by Model */}
-        <div className="bg-[var(--bg-surface)] border border-[var(--text-faint)] rounded-[var(--radius-lg)] p-6">
+        <div style={chartCard}>
           <h3 className="text-[var(--text-secondary)] text-sm font-medium mb-8">Spend by Model</h3>
           <SpendBarChart data={byModel} />
         </div>
 
         {/* Spend by Provider */}
-        <div className="bg-[var(--bg-surface)] border border-[var(--text-faint)] rounded-[var(--radius-lg)] p-6">
+        <div style={chartCard}>
           <h3 className="text-[var(--text-secondary)] text-sm font-medium mb-8">Spend by Provider</h3>
           <SpendPieChart data={byProvider} />
         </div>
       </div>
 
       {/* Token Usage Chart */}
-      <div className="bg-[var(--bg-surface)] border border-[var(--text-faint)] rounded-[var(--radius-lg)] p-6">
+      <div style={chartCard}>
         <h3 className="text-[var(--text-secondary)] text-sm font-medium mb-8">Token Consumption</h3>
         <TokenChart data={tokenUsage} />
       </div>

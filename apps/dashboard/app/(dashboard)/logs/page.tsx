@@ -59,58 +59,64 @@ export default async function LogsPage({
         <h1 className="text-[var(--gold-cream)] text-2xl font-semibold">Request Logs</h1>
         
         {/* Filter Bar */}
-        <form className="flex flex-wrap items-center gap-3">
-          <select 
-            name="model" 
-            defaultValue={params.model}
-            className="bg-[var(--bg-surface)] border border-[var(--text-faint)] rounded-md px-3 py-1.5 text-xs text-white focus:outline-none"
-            onChange={(e) => {
-              const url = new URL(window.location.href);
-              if (e.target.value) url.searchParams.set('model', e.target.value);
-              else url.searchParams.delete('model');
-              url.searchParams.set('page', '1');
-              window.location.href = url.toString();
+        <form className="flex flex-wrap items-center gap-2">
+          {[
+            {
+              name: 'model',
+              defaultValue: params.model,
+              options: [['', 'All Models'], ...filters.models.map((m) => [m, m])],
+              onChange: `(function(e){var u=new URL(window.location.href);e.target.value?u.searchParams.set('model',e.target.value):u.searchParams.delete('model');u.searchParams.set('page','1');window.location.href=u.toString()})`,
+            },
+            {
+              name: 'provider',
+              defaultValue: params.provider,
+              options: [['', 'All Providers'], ...filters.providers.map((p) => [p, p])],
+              onChange: `(function(e){var u=new URL(window.location.href);e.target.value?u.searchParams.set('provider',e.target.value):u.searchParams.delete('provider');u.searchParams.set('page','1');window.location.href=u.toString()})`,
+            },
+            {
+              name: 'environment',
+              defaultValue: params.environment || 'all',
+              options: [['all', 'All Envs'], ['live', 'Live'], ['development', 'Dev']],
+              onChange: `(function(e){var u=new URL(window.location.href);u.searchParams.set('environment',e.target.value);u.searchParams.set('page','1');window.location.href=u.toString()})`,
+            },
+          ].map((sel) => (
+            <select
+              key={sel.name}
+              name={sel.name}
+              defaultValue={sel.defaultValue}
+              style={{
+                background: 'var(--bg-surface)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 8,
+                padding: '6px 12px',
+                fontSize: 12,
+                color: 'var(--text-secondary)',
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              {sel.options.map(([val, label]) => (
+                <option key={val} value={val}>{label}</option>
+              ))}
+            </select>
+          ))}
+
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              fontSize: 12,
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              padding: '6px 12px',
+              background: params.isError === 'true' ? 'rgba(239,68,68,0.08)' : 'var(--bg-surface)',
+              border: `1px solid ${params.isError === 'true' ? 'rgba(239,68,68,0.25)' : 'rgba(255,255,255,0.08)'}`,
+              borderRadius: 8,
             }}
           >
-            <option value="">All Models</option>
-            {filters.models.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
-
-          <select 
-            name="provider" 
-            defaultValue={params.provider}
-            className="bg-[var(--bg-surface)] border border-[var(--text-faint)] rounded-md px-3 py-1.5 text-xs text-white focus:outline-none"
-            onChange={(e) => {
-              const url = new URL(window.location.href);
-              if (e.target.value) url.searchParams.set('provider', e.target.value);
-              else url.searchParams.delete('provider');
-              url.searchParams.set('page', '1');
-              window.location.href = url.toString();
-            }}
-          >
-            <option value="">All Providers</option>
-            {filters.providers.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
-
-          <select 
-            name="environment" 
-            defaultValue={params.environment || 'all'}
-            className="bg-[var(--bg-surface)] border border-[var(--text-faint)] rounded-md px-3 py-1.5 text-xs text-white focus:outline-none"
-            onChange={(e) => {
-              const url = new URL(window.location.href);
-              url.searchParams.set('environment', e.target.value);
-              url.searchParams.set('page', '1');
-              window.location.href = url.toString();
-            }}
-          >
-            <option value="all">All Envs</option>
-            <option value="live">Live</option>
-            <option value="development">Dev</option>
-          </select>
-
-          <label className="flex items-center gap-2 text-xs text-[var(--text-muted)] cursor-pointer hover:text-[var(--text-secondary)]">
-            <input 
-              type="checkbox" 
+            <input
+              type="checkbox"
               checked={params.isError === 'true'}
               onChange={(e) => {
                 const url = new URL(window.location.href);
@@ -125,8 +131,19 @@ export default async function LogsPage({
           </label>
 
           {hasActiveFilters && (
-            <Link href="/logs" className="text-[var(--error)] text-xs font-medium hover:underline ml-2">
-              Clear filters
+            <Link
+              href="/logs"
+              style={{
+                fontSize: 12,
+                color: 'var(--text-muted)',
+                padding: '6px 12px',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 8,
+                textDecoration: 'none',
+                transition: 'color 0.15s',
+              }}
+            >
+              Clear ×
             </Link>
           )}
         </form>
@@ -139,14 +156,21 @@ export default async function LogsPage({
       </div>
 
       {logs.rows.length === 0 ? (
-        <EmptyState message="No requests match your filters." />
+        <EmptyState
+          message={hasActiveFilters ? 'No requests match your filters.' : 'No requests yet.'}
+          sub={hasActiveFilters ? 'Try clearing your filters to see all logs.' : 'Logs will appear here after your first API call.'}
+          action={hasActiveFilters ? { label: 'Clear filters', href: '/logs' } : { label: 'View setup guide', href: '/docs' }}
+        />
       ) : (
         <>
-          <div className="bg-[var(--bg-surface)] border border-[var(--text-faint)] rounded-[var(--radius-lg)] overflow-hidden">
+          <div
+            className="rounded-[var(--radius-lg)] overflow-hidden"
+            style={{ border: '1px solid rgba(255,255,255,0.06)' }}
+          >
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
-                  <tr className="border-b border-[var(--text-faint)] bg-[var(--bg-subtle)]/30">
+                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
                     <th className="px-4 py-3 text-[var(--text-muted)] font-medium text-[10px] uppercase tracking-wider">Time</th>
                     <th className="px-4 py-3 text-[var(--text-muted)] font-medium text-[10px] uppercase tracking-wider">Call ID</th>
                     <th className="px-4 py-3 text-[var(--text-muted)] font-medium text-[10px] uppercase tracking-wider">Model</th>
@@ -158,9 +182,13 @@ export default async function LogsPage({
                     <th className="px-4 py-3 text-[var(--text-muted)] font-medium text-[10px] uppercase tracking-wider text-center">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[var(--text-faint)]">
-                  {logs.rows.map((log) => (
-                    <tr key={log.callId} className="hover:bg-[var(--bg-subtle)]/50 transition-colors group">
+                <tbody>
+                  {logs.rows.map((log, i) => (
+                    <tr
+                      key={log.callId}
+                      className="hover:bg-[rgba(255,255,255,0.02)] transition-colors group"
+                      style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.04)' : undefined }}
+                    >
                       <td className="px-4 py-3 text-[var(--text-secondary)] whitespace-nowrap" title={formatDate(log.timestampMs)}>
                         {formatDate(log.timestampMs).split(' · ')[1]}
                       </td>

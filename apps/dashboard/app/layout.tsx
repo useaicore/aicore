@@ -17,6 +17,30 @@ export const metadata = {
   title: 'AICore — AI Infrastructure. Finally Under Control.',
   description:
     'One endpoint. Every AI provider. Full cost visibility, automatic failover, and shared context. Built for developers, teams, and enterprises.',
+  metadataBase: new URL('https://aicore.dev'),
+  openGraph: {
+    title: 'AICore — AI Infrastructure. Finally Under Control.',
+    description:
+      'One endpoint. Every AI provider. Full cost visibility, automatic failover, and shared context.',
+    url: 'https://aicore.dev',
+    siteName: 'AICore',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'AICore — AI Infrastructure. Finally Under Control.',
+    description:
+      'One endpoint. Every AI provider. Full cost visibility, automatic failover, and shared context.',
+  },
+  keywords: [
+    'AI API gateway',
+    'LLM proxy',
+    'AI cost tracking',
+    'OpenAI proxy',
+    'AI infrastructure',
+    'LLM routing',
+    'AI observability',
+  ],
 };
 
 export default function RootLayout({
